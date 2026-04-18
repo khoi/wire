@@ -29,7 +29,7 @@ wire app quit <app> [--force]
 wire app quit --pid <pid> [--force]
 
 wire inspect [--app <app>]
-wire click <@eN|query>
+wire click <@eN|query> [--snapshot <sN>] [--right]
 wire type <text> [--into <@eN|query>]
 wire press <key|combo>
 wire scroll [<@eN|query>] --up <n>|--down <n>
@@ -95,7 +95,16 @@ Inspects the active UI and returns a fresh snapshot with short element refs such
 
 ### `click <@eN|query>`
 
-Clicks an element by short ref from the latest snapshot or by a friendly query.
+Clicks an element from an inspect snapshot.
+
+- uses the latest snapshot by default
+- `--snapshot <sN>` pins an exact snapshot
+- `@eN` resolves directly within that snapshot
+- plain queries match `name` exactly, case-insensitive
+- `role:"name"` matches `role` and `name` exactly, case-insensitive
+- default click uses Accessibility `AXPress`
+- `--right` performs a physical right click at the element center
+- `--right` never focuses the app and requires the target app/window to already be frontmost
 
 ### `type <text> [--into <@eN|query>]`
 
@@ -200,6 +209,13 @@ wire inspect
 wire click @e1
 wire type "weather london"
 wire press enter
+```
+
+Right click a previously inspected element:
+
+```bash
+wire inspect --app "Reminders"
+wire click @e3 --right
 ```
 
 Example `inspect` result:

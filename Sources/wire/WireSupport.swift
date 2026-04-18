@@ -43,6 +43,7 @@ struct WireEnvironment {
     var permissions: PermissionsClient
     var apps: AppClient
     var inspect: InspectClient
+    var click: ClickClient
     var currentDirectoryPath: String
     var stateDirectoryPath: String
     var stdout: (String) -> Void
@@ -52,6 +53,7 @@ struct WireEnvironment {
         permissions: PermissionsClient,
         apps: AppClient,
         inspect: InspectClient,
+        click: ClickClient,
         currentDirectoryPath: String,
         stateDirectoryPath: String,
         stdout: @escaping (String) -> Void,
@@ -60,6 +62,7 @@ struct WireEnvironment {
         self.permissions = permissions
         self.apps = apps
         self.inspect = inspect
+        self.click = click
         self.currentDirectoryPath = currentDirectoryPath
         self.stateDirectoryPath = stateDirectoryPath
         self.stdout = stdout
@@ -70,6 +73,7 @@ struct WireEnvironment {
         permissions: PermissionsClient = .live,
         apps: AppClient? = nil,
         inspect: InspectClient? = nil,
+        click: ClickClient? = nil,
         currentDirectoryPath: String = FileManager.default.currentDirectoryPath,
         stateDirectoryPath: String = FileManager.default.temporaryDirectory.path
     ) -> WireEnvironment {
@@ -77,6 +81,7 @@ struct WireEnvironment {
             permissions: permissions,
             apps: apps ?? .live(),
             inspect: inspect ?? .live(),
+            click: click ?? .live(),
             currentDirectoryPath: currentDirectoryPath,
             stateDirectoryPath: stateDirectoryPath,
             stdout: { text in
@@ -123,6 +128,10 @@ struct CommandContext {
 
     var inspect: InspectClient {
         environment.inspect
+    }
+
+    var click: ClickClient {
+        environment.click
     }
 
     var currentDirectoryPath: String {

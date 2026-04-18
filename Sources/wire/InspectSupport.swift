@@ -553,6 +553,14 @@ enum LiveInspectSystem {
         let window: VisibleWindow
     }
 
+    private struct ResolvedLiveElement {
+        let application: ResolvedApplication
+        let window: VisibleWindow
+        let element: AXUIElement
+        let actions: [String]
+        let screenFrame: CGRect?
+    }
+
     static func capture(target: InspectTarget) throws -> CapturedInspection {
         let application = try resolveApplication(target: target)
         let window = try resolveWindow(for: application)
@@ -593,31 +601,41 @@ enum LiveInspectSystem {
         )
     }
 
-    private static func resolveApplication(target: InspectTarget) throws -> ResolvedApplication {
-        let frontmostPID = runOnMainThread {
-            NSWorkspace.shared.frontmostApplication?.processIdentifier
-        }
-        let running: [ResolvedApplication] = runOnMainThread {
-            NSWorkspace.shared.runningApplications.compactMap { application -> ResolvedApplication? in
-                guard LiveAppSystem.shouldListApplication(
-                    isTerminated: application.isTerminated,
-                    activationPolicy: application.activationPolicy,
-                    includeAccessory: true
-                ) else {
-                    return nil
-                }
-                return ResolvedApplication(
-                    name: application.localizedName
-                        ?? application.bundleURL?.deletingPathExtension().lastPathComponent
-                        ?? application.bundleIdentifier
-                        ?? "Unknown",
-                    bundleId: application.bundleIdentifier,
-                    pid: application.processIdentifier,
-                    focused: application.processIdentifier == frontmostPID
-                )
+    static func click(
+        element: StoredInspectSnapshot.Element,
+        right: Bool
+    ) throws {
+        let staleMessage = "\(element.id) is no longer valid"
+        let resolved = try resolveElement(
+            element: element,
+            staleMessage: staleMessage
+        )
+        if right {
+            guard resolved.application.focused else {
+                throw ClickError.targetNotFrontmost("target app is not frontmost")
             }
+            guard let frontmostWindow = try? resolveWindow(for: resolved.application),
+                  frontmostWindow.id == resolved.window.id
+            else {
+                throw ClickError.targetNotFrontmost("target window is not frontmost")
+            }
+            guard let frame = resolved.screenFrame ?? element.resolver.screenFrame else {
+                throw ClickError.elementGeometryUnavailable("element geometry is unavailable for \(element.id)")
+            }
+            try postRightClick(at: CGPoint(x: frame.midX, y: frame.midY))
+            return
         }
+        guard resolved.actions.contains("AXPress") else {
+            throw ClickError.elementNotClickable("\(element.id) is not clickable")
+        }
+        let error = AXUIElementPerformAction(resolved.element, kAXPressAction as CFString)
+        guard error == .success else {
+            throw ClickError.elementActionFailed("failed to click \(element.id)")
+        }
+    }
 
+    private static func resolveApplication(target: InspectTarget) throws -> ResolvedApplication {
+        let running = runningApplications()
         switch target {
         case .frontmost:
             guard let frontmost = running.first(where: { $0.focused }) else {
@@ -644,6 +662,240 @@ enum LiveInspectSystem {
             }
             throw InspectError.ambiguousTarget("multiple running applications matched \(name)")
         }
+    }
+
+    private static func resolveElement(
+        element: StoredInspectSnapshot.Element,
+        staleMessage: String
+    ) throws -> ResolvedLiveElement {
+        do {
+            let application = try resolveStoredApplication(
+                resolver: element.resolver,
+                staleMessage: staleMessage
+            )
+            let window = try resolveStoredWindow(
+                resolver: element.resolver,
+                application: application,
+                staleMessage: staleMessage
+            )
+            let appElement = AXUIElementCreateApplication(application.processID)
+            let windowElement = try resolveWindowElement(
+                for: appElement,
+                matching: window
+            )
+            let liveElement = try descendant(
+                from: windowElement,
+                path: element.resolver.path,
+                staleMessage: staleMessage
+            )
+            let metadata = try validateResolvedElement(
+                liveElement,
+                storedElement: element,
+                staleMessage: staleMessage
+            )
+            return ResolvedLiveElement(
+                application: application,
+                window: window,
+                element: liveElement,
+                actions: metadata.actions,
+                screenFrame: metadata.screenFrame
+            )
+        } catch let error as ClickError {
+            throw error
+        } catch {
+            throw ClickError.staleRef(staleMessage)
+        }
+    }
+
+    private static func runningApplications() -> [ResolvedApplication] {
+        let frontmostPID = runOnMainThread {
+            NSWorkspace.shared.frontmostApplication?.processIdentifier
+        }
+        return runOnMainThread {
+            NSWorkspace.shared.runningApplications.compactMap { application -> ResolvedApplication? in
+                guard LiveAppSystem.shouldListApplication(
+                    isTerminated: application.isTerminated,
+                    activationPolicy: application.activationPolicy,
+                    includeAccessory: true
+                ) else {
+                    return nil
+                }
+                return ResolvedApplication(
+                    name: application.localizedName
+                        ?? application.bundleURL?.deletingPathExtension().lastPathComponent
+                        ?? application.bundleIdentifier
+                        ?? "Unknown",
+                    bundleId: application.bundleIdentifier,
+                    pid: application.processIdentifier,
+                    focused: application.processIdentifier == frontmostPID
+                )
+            }
+        }
+    }
+
+    private static func resolveStoredApplication(
+        resolver: InspectElementResolver,
+        staleMessage: String
+    ) throws -> ResolvedApplication {
+        let running = runningApplications()
+        if let pidMatch = running.first(where: { application in
+            application.pid == resolver.appPID && applicationIdentityMatches(application, resolver: resolver)
+        }) {
+            return pidMatch
+        }
+        if let bundleId = resolver.appBundleId {
+            let bundleMatches = running.filter { $0.bundleId == bundleId }
+            if bundleMatches.count == 1 {
+                return bundleMatches[0]
+            }
+        }
+        let nameMatches = running.filter {
+            $0.name.compare(resolver.appName, options: [.caseInsensitive]) == .orderedSame
+        }
+        if nameMatches.count == 1 {
+            return nameMatches[0]
+        }
+        throw ClickError.staleRef(staleMessage)
+    }
+
+    private static func applicationIdentityMatches(
+        _ application: ResolvedApplication,
+        resolver: InspectElementResolver
+    ) -> Bool {
+        if let bundleId = resolver.appBundleId {
+            return application.bundleId == bundleId
+        }
+        return application.name.compare(resolver.appName, options: [.caseInsensitive]) == .orderedSame
+    }
+
+    private static func resolveStoredWindow(
+        resolver: InspectElementResolver,
+        application: ResolvedApplication,
+        staleMessage: String
+    ) throws -> VisibleWindow {
+        let windows = visibleWindows().filter { $0.ownerPID == application.pid }
+        guard !windows.isEmpty else {
+            throw ClickError.staleRef(staleMessage)
+        }
+        guard let match = windows
+            .map({ ($0, storedWindowScore(window: $0, resolver: resolver)) })
+            .filter({ $0.1 > 0 })
+            .sorted(by: { lhs, rhs in
+                if lhs.1 == rhs.1 {
+                    return lhs.0.order < rhs.0.order
+                }
+                return lhs.1 > rhs.1
+            })
+            .first?
+            .0
+        else {
+            throw ClickError.staleRef(staleMessage)
+        }
+        return match
+    }
+
+    private static func storedWindowScore(
+        window: VisibleWindow,
+        resolver: InspectElementResolver
+    ) -> Int {
+        var score = 0
+        if window.id == resolver.windowID {
+            score += 20
+        }
+        if frameDistance(window.frame, resolver.windowFrame) < 12 {
+            score += 10
+        }
+        if let title = window.title?.lowercased(),
+           let resolverTitle = resolver.windowTitle?.lowercased(),
+           !title.isEmpty,
+           title == resolverTitle
+        {
+            score += 5
+        }
+        return score
+    }
+
+    private static func descendant(
+        from root: AXUIElement,
+        path: [Int],
+        staleMessage: String
+    ) throws -> AXUIElement {
+        var current = root
+        for index in path {
+            let children = try children(of: current)
+            guard children.indices.contains(index) else {
+                throw ClickError.staleRef(staleMessage)
+            }
+            current = children[index]
+        }
+        return current
+    }
+
+    private static func validateResolvedElement(
+        _ liveElement: AXUIElement,
+        storedElement: StoredInspectSnapshot.Element,
+        staleMessage: String
+    ) throws -> (actions: [String], screenFrame: CGRect?) {
+        let rawRole = try stringAttribute(liveElement, attribute: kAXRoleAttribute as CFString) ?? "AXUnknown"
+        guard rawRole == storedElement.resolver.rawRole else {
+            throw ClickError.staleRef(staleMessage)
+        }
+        let rawSubrole = try stringAttribute(liveElement, attribute: kAXSubroleAttribute as CFString)
+        guard rawSubrole == storedElement.resolver.rawSubrole else {
+            throw ClickError.staleRef(staleMessage)
+        }
+        let rawTitle = try stringAttribute(liveElement, attribute: kAXTitleAttribute as CFString)
+        let rawDescription = try stringAttribute(liveElement, attribute: kAXDescriptionAttribute as CFString)
+        let rawHelp = try stringAttribute(liveElement, attribute: kAXHelpAttribute as CFString)
+        let rawValue = try stringValueAttribute(liveElement, attribute: kAXValueAttribute as CFString)
+        var name = inspectElementName(
+            .init(
+                role: rawRole,
+                title: rawTitle,
+                description: rawDescription,
+                help: rawHelp,
+                value: rawValue,
+                subrole: rawSubrole
+            )
+        )
+        if name.isEmpty {
+            name = try descendantInspectElementName(of: liveElement)
+        }
+        guard name.compare(storedElement.name, options: [.caseInsensitive]) == .orderedSame else {
+            throw ClickError.staleRef(staleMessage)
+        }
+        let actions = try actionNames(liveElement)
+        let role = publicRole(for: rawRole, actions: actions)
+        guard role == storedElement.role else {
+            throw ClickError.staleRef(staleMessage)
+        }
+        let screenFrame = try frameAttribute(liveElement)
+        if let storedFrame = storedElement.resolver.screenFrame,
+           let screenFrame,
+           frameDistance(storedFrame, screenFrame) > 24
+        {
+            throw ClickError.staleRef(staleMessage)
+        }
+        return (actions, screenFrame)
+    }
+
+    private static func postRightClick(at point: CGPoint) throws {
+        guard let down = CGEvent(
+            mouseEventSource: nil,
+            mouseType: .rightMouseDown,
+            mouseCursorPosition: point,
+            mouseButton: .right
+        ),
+        let up = CGEvent(
+            mouseEventSource: nil,
+            mouseType: .rightMouseUp,
+            mouseCursorPosition: point,
+            mouseButton: .right
+        ) else {
+            throw ClickError.elementActionFailed("failed to right-click element")
+        }
+        down.post(tap: .cghidEventTap)
+        up.post(tap: .cghidEventTap)
     }
 
     private static func resolveWindow(for application: ResolvedApplication) throws -> VisibleWindow {

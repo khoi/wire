@@ -8,6 +8,7 @@ class WireCommandTestCase: XCTestCase {
         output: OutputCapture,
         apps: AppClient? = nil,
         inspect: InspectClient? = nil,
+        click: ClickClient? = nil,
         currentDirectoryPath: String = "/tmp/wire-tests",
         stateDirectoryPath: String = "/tmp/wire-state-tests"
     ) -> WireEnvironment {
@@ -15,6 +16,7 @@ class WireCommandTestCase: XCTestCase {
             permissions: state.makeClient(),
             apps: apps ?? AppState().makeClient(),
             inspect: inspect ?? InspectState().makeClient(),
+            click: click ?? ClickState().makeClient(),
             currentDirectoryPath: currentDirectoryPath,
             stateDirectoryPath: stateDirectoryPath,
             stdout: output.writeStdout,
@@ -284,6 +286,34 @@ final class InspectState {
     }
 }
 
+final class ClickState {
+    struct Call: Equatable {
+        let snapshot: String
+        let elementID: String
+        let right: Bool
+    }
+
+    var calls: [Call] = []
+    var clickError: Error?
+
+    func makeClient() -> ClickClient {
+        ClickClient(
+            perform: { snapshotID, element, right in
+                self.calls.append(
+                    .init(
+                        snapshot: snapshotID,
+                        elementID: element.id,
+                        right: right
+                    )
+                )
+                if let clickError = self.clickError {
+                    throw clickError
+                }
+            }
+        )
+    }
+}
+
 struct StatusEnvelope: Decodable, Equatable {
     let data: StatusData
 }
@@ -394,4 +424,20 @@ struct InspectItem: Decodable, Equatable {
     let name: String
     let value: String?
     let enabled: Bool?
+}
+
+struct ClickEnvelope: Decodable, Equatable {
+    let data: ClickPayload
+}
+
+struct ClickPayload: Decodable, Equatable {
+    let snapshot: String
+    let clicked: ClickedItem
+    let right: Bool
+}
+
+struct ClickedItem: Decodable, Equatable {
+    let id: String
+    let role: String
+    let name: String
 }
