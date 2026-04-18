@@ -16,7 +16,6 @@ final class PermissionsStatusCommandTests: WireCommandTestCase {
 
         let response = try decode(StatusEnvelope.self, from: output.stdout)
         XCTAssertTrue(response.ok)
-        XCTAssertFalse(response.data.ready)
         XCTAssertEqual(
             response.data.permissions,
             [
@@ -27,7 +26,7 @@ final class PermissionsStatusCommandTests: WireCommandTestCase {
     }
 
     func testStatusSupportsPlainFlagAtEveryCommandLevel() {
-        let expected = "ready: no\naccessibility: granted\nscreen-recording: missing\n"
+        let expected = "accessibility: granted\nscreen-recording: missing\n"
         let cases = [
             ["--plain", "permissions", "status"],
             ["permissions", "--plain", "status"],
@@ -64,7 +63,13 @@ final class PermissionsStatusCommandTests: WireCommandTestCase {
         XCTAssertFalse(output.stdout.contains("[verbose]"))
 
         let response = try decode(StatusEnvelope.self, from: output.stdout)
-        XCTAssertTrue(response.data.ready)
+        XCTAssertEqual(
+            response.data.permissions,
+            [
+                .init(kind: "accessibility", granted: true),
+                .init(kind: "screen-recording", granted: true),
+            ]
+        )
     }
 
     func testParseErrorsReturnStructuredJSON() throws {

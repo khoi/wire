@@ -114,46 +114,34 @@ struct PermissionGrantEntry: Codable, Equatable {
 }
 
 struct PermissionsStatusData: Codable, Equatable {
-    let ready: Bool
     let permissions: [PermissionStatusEntry]
 
     init(permissions: [PermissionStatusEntry]) {
         self.permissions = permissions
-        ready = permissions.allSatisfy(\.granted)
     }
 
     func plainText() -> String {
-        ([readyLine] + permissions.map { entry in
+        permissions.map { entry in
             "\(entry.kind.rawValue): \(entry.granted ? "granted" : "missing")"
-        }).joined(separator: "\n")
-    }
-
-    private var readyLine: String {
-        "ready: \(ready ? "yes" : "no")"
+        }.joined(separator: "\n")
     }
 }
 
 struct PermissionsGrantData: Codable, Equatable {
-    let ready: Bool
     let permissions: [PermissionGrantEntry]
 
     init(permissions: [PermissionGrantEntry]) {
         self.permissions = permissions
-        ready = permissions.allSatisfy(\.after)
     }
 
     func plainText() -> String {
-        ([readyLine] + permissions.map { entry in
+        permissions.map { entry in
             var line = "\(entry.kind.rawValue): \(entry.after ? "granted" : "missing")"
             if entry.requested {
                 line += " requested"
             }
             return line
-        }).joined(separator: "\n")
-    }
-
-    private var readyLine: String {
-        "ready: \(ready ? "yes" : "no")"
+        }.joined(separator: "\n")
     }
 }
 

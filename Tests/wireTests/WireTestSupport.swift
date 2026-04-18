@@ -73,7 +73,6 @@ struct StatusEnvelope: Decodable, Equatable {
 }
 
 struct StatusData: Decodable, Equatable {
-    let ready: Bool
     let permissions: [StatusPermission]
 }
 
@@ -88,7 +87,6 @@ struct GrantEnvelope: Decodable, Equatable {
 }
 
 struct GrantData: Decodable, Equatable {
-    let ready: Bool
     let permissions: [GrantPermission]
 }
 

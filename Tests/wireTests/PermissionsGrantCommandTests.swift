@@ -18,7 +18,6 @@ final class PermissionsGrantCommandTests: WireCommandTestCase {
 
         let response = try decode(GrantEnvelope.self, from: output.stdout)
         XCTAssertTrue(response.ok)
-        XCTAssertTrue(response.data.ready)
         XCTAssertEqual(
             response.data.permissions,
             [
@@ -43,7 +42,6 @@ final class PermissionsGrantCommandTests: WireCommandTestCase {
 
         let response = try decode(GrantEnvelope.self, from: output.stdout)
         XCTAssertTrue(response.ok)
-        XCTAssertFalse(response.data.ready)
         XCTAssertEqual(
             response.data.permissions,
             [
@@ -67,7 +65,6 @@ final class PermissionsGrantCommandTests: WireCommandTestCase {
         XCTAssertEqual(state.screenRecordingRequests, 0)
 
         let response = try decode(GrantEnvelope.self, from: output.stdout)
-        XCTAssertTrue(response.data.ready)
         XCTAssertEqual(
             response.data.permissions,
             [
