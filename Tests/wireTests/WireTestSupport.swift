@@ -226,6 +226,5 @@ struct AppListItem: Decodable, Equatable {
     let name: String
     let bundleId: String?
     let path: String?
-    let pid: Int32?
-    let running: Bool
+    let pid: Int32
 }

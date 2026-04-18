@@ -62,7 +62,7 @@ v1 covers exactly:
 
 ### `app list`
 
-Lists running apps and apps discoverable by name.
+Lists running applications.
 
 ### `app launch <app>`
 
@@ -203,7 +203,6 @@ Example `see` result:
     "app": {
       "id": "@a1",
       "name": "Google Chrome",
-      "running": true,
       "focused": true
     },
     "elements": [

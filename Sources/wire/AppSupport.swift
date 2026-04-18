@@ -58,8 +58,7 @@ struct AppListEntry: Codable, Equatable {
     let name: String
     let bundleId: String?
     let path: String?
-    let pid: Int32?
-    let running: Bool
+    let pid: Int32
 }
 
 struct AppListData: Codable, Equatable {
@@ -70,8 +69,7 @@ struct AppListData: Codable, Equatable {
             [
                 app.name,
                 app.bundleId ?? "-",
-                app.running ? "running" : "installed",
-                app.pid.map(String.init) ?? "-",
+                String(app.pid),
                 app.path ?? "-",
             ].joined(separator: "\t")
         }.joined(separator: "\n")
@@ -245,42 +243,25 @@ struct AppListService {
 enum LiveAppSystem {
     static func listApplications() throws -> [AppListEntry] {
         mainThread {
-            var appsByKey: [String: AppListEntry] = [:]
-
-            for appURL in discoverableApplicationURLs() {
-                let bundle = Bundle(url: appURL)
-                let name = appURL.deletingPathExtension().lastPathComponent
-                let bundleId = bundle?.bundleIdentifier
-                let entry = AppListEntry(
-                    name: name,
-                    bundleId: bundleId,
-                    path: appURL.path,
-                    pid: nil,
-                    running: false
-                )
-                appsByKey[applicationKey(bundleId: bundleId, path: appURL.path, name: name)] = entry
-            }
-
-            for application in NSWorkspace.shared.runningApplications where application.activationPolicy != .prohibited {
+            NSWorkspace.shared.runningApplications.compactMap { application in
+                guard !application.isTerminated else {
+                    return nil
+                }
+                guard application.activationPolicy == .regular else {
+                    return nil
+                }
                 let name =
                     application.localizedName
                     ?? application.bundleURL?.deletingPathExtension().lastPathComponent
                     ?? application.bundleIdentifier
                     ?? "Unknown"
-                let bundleId = application.bundleIdentifier
-                let path = application.bundleURL?.path
-                let key = applicationKey(bundleId: bundleId, path: path, name: name)
-                let existing = appsByKey[key]
-                appsByKey[key] = AppListEntry(
-                    name: existing?.name ?? name,
-                    bundleId: bundleId ?? existing?.bundleId,
-                    path: path ?? existing?.path,
+                return AppListEntry(
+                    name: name,
+                    bundleId: application.bundleIdentifier,
+                    path: application.bundleURL?.path,
                     pid: application.processIdentifier,
-                    running: true
                 )
             }
-
-            return Array(appsByKey.values)
         }
     }
 

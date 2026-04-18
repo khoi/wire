@@ -10,16 +10,14 @@ final class AppListCommandTests: WireCommandTestCase {
                 name: "Safari",
                 bundleId: "com.apple.Safari",
                 path: "/Applications/Safari.app",
-                pid: 41,
-                running: true
+                pid: 41
             ),
             .init(
                 name: "Google Chrome",
                 bundleId: "com.google.Chrome",
                 path: "/Applications/Google Chrome.app",
-                pid: nil,
-                running: false
-            ),
+                pid: 52
+            )
         ]
         let output = OutputCapture()
 
@@ -39,15 +37,13 @@ final class AppListCommandTests: WireCommandTestCase {
                             name: "Google Chrome",
                             bundleId: "com.google.Chrome",
                             path: "/Applications/Google Chrome.app",
-                            pid: nil,
-                            running: false
+                            pid: 52
                         ),
                         .init(
                             name: "Safari",
                             bundleId: "com.apple.Safari",
                             path: "/Applications/Safari.app",
-                            pid: 41,
-                            running: true
+                            pid: 41
                         ),
                     ]
                 )
@@ -63,8 +59,7 @@ final class AppListCommandTests: WireCommandTestCase {
                 name: "Finder",
                 bundleId: "com.apple.finder",
                 path: "/System/Applications/Finder.app",
-                pid: 1,
-                running: true
+                pid: 1
             ),
         ]
         let output = OutputCapture()
@@ -81,7 +76,7 @@ final class AppListCommandTests: WireCommandTestCase {
     }
 
     func testListSupportsPlainFlagAtEveryCommandLevel() async {
-        let expected = "Google Chrome\tcom.google.Chrome\tinstalled\t-\t/Applications/Google Chrome.app\n"
+        let expected = "Google Chrome\tcom.google.Chrome\t52\t/Applications/Google Chrome.app\n"
         let cases = [
             ["--plain", "app", "list"],
             ["app", "--plain", "list"],
@@ -96,8 +91,7 @@ final class AppListCommandTests: WireCommandTestCase {
                     name: "Google Chrome",
                     bundleId: "com.google.Chrome",
                     path: "/Applications/Google Chrome.app",
-                    pid: nil,
-                    running: false
+                    pid: 52
                 ),
             ]
             let output = OutputCapture()
