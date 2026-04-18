@@ -23,7 +23,7 @@ wire [--plain] [--verbose|-v] permissions grant
 wire [--plain] [--verbose|-v] permissions status
 
 wire app list
-wire app use <app>
+wire app launch <app> [--open <path-or-url> ...] [--wait] [--focus]
 wire app quit <app>
 
 wire open <target> [--app <app>]
@@ -63,9 +63,13 @@ v1 covers exactly:
 
 Lists running apps and apps discoverable by name.
 
-### `app use <app>`
+### `app launch <app>`
 
-Focuses the app if running. Launches then focuses it if not running.
+Launches the app by name or path. `--bundle-id` can target the app by bundle identifier instead.
+
+- `--open <path-or-url>` repeats and passes documents or URLs right after launch
+- `--wait` waits until the app reports it finished launching
+- `--focus` brings the app to the foreground after launch
 
 ### `app quit <app>`
 
@@ -163,21 +167,21 @@ Agents should prefer `@eN` after `see`.
 Open Google Chrome when already running:
 
 ```bash
-wire app use chrome
+wire app launch chrome --focus
 wire open https://google.com --app chrome
 ```
 
 Open Google Chrome when not running:
 
 ```bash
-wire app use chrome
+wire app launch chrome --focus
 wire open https://google.com --app chrome
 ```
 
 The behavior is the same:
 
-- if Chrome is running, focus it
-- if Chrome is not running, launch then focus it
+- if Chrome is running, `app launch` starts or reuses the app process
+- `--focus` brings Chrome to the foreground
 - open the target in Chrome
 
 Inspect and act:

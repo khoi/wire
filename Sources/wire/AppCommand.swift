@@ -1,11 +1,10 @@
 import ArgumentParser
 
-struct Wire: ParsableCommand {
+struct AppCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
-        commandName: "wire",
+        commandName: "app",
         subcommands: [
-            AppCommand.self,
-            PermissionsCommand.self,
+            AppLaunchCommand.self,
         ]
     )
 

@@ -1,20 +1,19 @@
 import XCTest
 @testable import wire
 
-final class PermissionsCommandTests: WireCommandTestCase {
-    func testPermissionsCommandPrintsPermissionsHelp() async {
+final class AppCommandTests: WireCommandTestCase {
+    func testAppCommandPrintsAppHelp() async {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let output = OutputCapture()
 
         let exitCode = await WireRunner.run(
-            arguments: ["permissions"],
+            arguments: ["app"],
             environment: environment(state: state, output: output)
         )
 
         XCTAssertEqual(exitCode, 0)
-        XCTAssertTrue(output.stdout.contains("USAGE: wire permissions"))
-        XCTAssertTrue(output.stdout.contains("status"))
-        XCTAssertTrue(output.stdout.contains("grant"))
+        XCTAssertTrue(output.stdout.contains("USAGE: wire app"))
+        XCTAssertTrue(output.stdout.contains("launch"))
         XCTAssertEqual(output.stderr, "")
     }
 }

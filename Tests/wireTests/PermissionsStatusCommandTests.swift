@@ -2,11 +2,11 @@ import XCTest
 @testable import wire
 
 final class PermissionsStatusCommandTests: WireCommandTestCase {
-    func testStatusReturnsJSON() throws {
+    func testStatusReturnsJSON() async throws {
         let state = PermissionState(accessibility: true, screenRecording: false)
         let output = OutputCapture()
 
-        let exitCode = WireRunner.run(
+        let exitCode = await WireRunner.run(
             arguments: ["permissions", "status"],
             environment: environment(state: state, output: output)
         )
@@ -24,7 +24,7 @@ final class PermissionsStatusCommandTests: WireCommandTestCase {
         )
     }
 
-    func testStatusSupportsPlainFlagAtEveryCommandLevel() {
+    func testStatusSupportsPlainFlagAtEveryCommandLevel() async {
         let expected = "accessibility: granted\nscreen-recording: missing\n"
         let cases = [
             ["--plain", "permissions", "status"],
@@ -36,7 +36,7 @@ final class PermissionsStatusCommandTests: WireCommandTestCase {
             let state = PermissionState(accessibility: true, screenRecording: false)
             let output = OutputCapture()
 
-            let exitCode = WireRunner.run(
+            let exitCode = await WireRunner.run(
                 arguments: arguments,
                 environment: environment(state: state, output: output)
             )
@@ -47,11 +47,11 @@ final class PermissionsStatusCommandTests: WireCommandTestCase {
         }
     }
 
-    func testVerboseLogsGoToStderrOnly() throws {
+    func testVerboseLogsGoToStderrOnly() async throws {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let output = OutputCapture()
 
-        let exitCode = WireRunner.run(
+        let exitCode = await WireRunner.run(
             arguments: ["-v", "permissions", "status"],
             environment: environment(state: state, output: output)
         )
@@ -71,11 +71,11 @@ final class PermissionsStatusCommandTests: WireCommandTestCase {
         )
     }
 
-    func testParseErrorsReturnStructuredJSON() throws {
+    func testParseErrorsReturnStructuredJSON() async throws {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let output = OutputCapture()
 
-        let exitCode = WireRunner.run(
+        let exitCode = await WireRunner.run(
             arguments: ["permissions", "status", "--nope"],
             environment: environment(state: state, output: output)
         )
@@ -88,11 +88,11 @@ final class PermissionsStatusCommandTests: WireCommandTestCase {
         XCTAssertTrue(response.error.message.contains("--nope"))
     }
 
-    func testParseErrorsIgnorePlainFlagAndReturnJSON() throws {
+    func testParseErrorsIgnorePlainFlagAndReturnJSON() async throws {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let output = OutputCapture()
 
-        let exitCode = WireRunner.run(
+        let exitCode = await WireRunner.run(
             arguments: ["--plain", "permissions", "status", "--nope"],
             environment: environment(state: state, output: output)
         )

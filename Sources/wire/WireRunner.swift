@@ -5,7 +5,7 @@ enum WireRunner {
     static func run(
         arguments: [String],
         environment: WireEnvironment = .live()
-    ) -> Int32 {
+    ) async -> Int32 {
         do {
             let parsed = try Wire.parseAsRoot(arguments)
 
@@ -16,7 +16,7 @@ enum WireRunner {
                     logger: Logger(isVerbose: outputOptions.verbose, write: environment.stderr)
                 )
                 do {
-                    let execution = try executable.execute(context: context)
+                    let execution = try await executable.execute(context: context)
                     execution.write(options: outputOptions, environment: environment)
                     return execution.exitCode
                 } catch let error as any WireError {

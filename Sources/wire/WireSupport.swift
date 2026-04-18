@@ -1,3 +1,4 @@
+@preconcurrency import AppKit
 @preconcurrency import ApplicationServices
 import ArgumentParser
 @preconcurrency import CoreGraphics
@@ -40,22 +41,34 @@ struct PermissionsClient: Sendable {
 
 struct WireEnvironment {
     var permissions: PermissionsClient
+    var apps: AppClient
+    var currentDirectoryPath: String
     var stdout: (String) -> Void
     var stderr: (String) -> Void
 
     init(
         permissions: PermissionsClient,
+        apps: AppClient,
+        currentDirectoryPath: String,
         stdout: @escaping (String) -> Void,
         stderr: @escaping (String) -> Void
     ) {
         self.permissions = permissions
+        self.apps = apps
+        self.currentDirectoryPath = currentDirectoryPath
         self.stdout = stdout
         self.stderr = stderr
     }
 
-    static func live(permissions: PermissionsClient = .live) -> WireEnvironment {
+    static func live(
+        permissions: PermissionsClient = .live,
+        apps: AppClient? = nil,
+        currentDirectoryPath: String = FileManager.default.currentDirectoryPath
+    ) -> WireEnvironment {
         WireEnvironment(
             permissions: permissions,
+            apps: apps ?? .live(),
+            currentDirectoryPath: currentDirectoryPath,
             stdout: { text in
                 FileHandle.standardOutput.write(Data(text.utf8))
             },
@@ -93,6 +106,14 @@ struct CommandContext {
 
     var permissions: PermissionsClient {
         environment.permissions
+    }
+
+    var apps: AppClient {
+        environment.apps
+    }
+
+    var currentDirectoryPath: String {
+        environment.currentDirectoryPath
     }
 }
 
@@ -333,7 +354,7 @@ struct PermissionsService {
 
 protocol WireExecutableCommand {
     var outputOptions: OutputOptions { get }
-    func execute(context: CommandContext) throws -> CommandExecution
+    func execute(context: CommandContext) async throws -> CommandExecution
 }
 
 private func terminated(_ text: String) -> String {

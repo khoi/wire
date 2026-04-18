@@ -2,12 +2,12 @@ import XCTest
 @testable import wire
 
 final class PermissionsGrantCommandTests: WireCommandTestCase {
-    func testGrantRequestsOnlyMissingPermissions() throws {
+    func testGrantRequestsOnlyMissingPermissions() async throws {
         let state = PermissionState(accessibility: false, screenRecording: true)
         state.grantAccessibilityOnRequest = true
         let output = OutputCapture()
 
-        let exitCode = WireRunner.run(
+        let exitCode = await WireRunner.run(
             arguments: ["permissions", "grant"],
             environment: environment(state: state, output: output)
         )
@@ -26,11 +26,11 @@ final class PermissionsGrantCommandTests: WireCommandTestCase {
         )
     }
 
-    func testGrantExitsNonZeroWhenPermissionRemainsMissing() throws {
+    func testGrantExitsNonZeroWhenPermissionRemainsMissing() async throws {
         let state = PermissionState(accessibility: true, screenRecording: false)
         let output = OutputCapture()
 
-        let exitCode = WireRunner.run(
+        let exitCode = await WireRunner.run(
             arguments: ["permissions", "grant"],
             environment: environment(state: state, output: output)
         )
@@ -49,11 +49,11 @@ final class PermissionsGrantCommandTests: WireCommandTestCase {
         )
     }
 
-    func testGrantSkipsRequestsWhenEverythingIsAlreadyGranted() throws {
+    func testGrantSkipsRequestsWhenEverythingIsAlreadyGranted() async throws {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let output = OutputCapture()
 
-        let exitCode = WireRunner.run(
+        let exitCode = await WireRunner.run(
             arguments: ["permissions", "grant"],
             environment: environment(state: state, output: output)
         )
