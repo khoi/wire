@@ -244,10 +244,10 @@ enum LiveAppSystem {
     static func listApplications() throws -> [AppListEntry] {
         mainThread {
             NSWorkspace.shared.runningApplications.compactMap { application in
-                guard !application.isTerminated else {
-                    return nil
-                }
-                guard application.activationPolicy == .regular else {
+                guard shouldListApplication(
+                    isTerminated: application.isTerminated,
+                    activationPolicy: application.activationPolicy
+                ) else {
                     return nil
                 }
                 let name =
@@ -263,6 +263,16 @@ enum LiveAppSystem {
                 )
             }
         }
+    }
+
+    static func shouldListApplication(
+        isTerminated: Bool,
+        activationPolicy: NSApplication.ActivationPolicy
+    ) -> Bool {
+        guard !isTerminated else {
+            return false
+        }
+        return activationPolicy != .prohibited
     }
 
     static func resolveApplicationURL(
