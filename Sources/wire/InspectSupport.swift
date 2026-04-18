@@ -61,12 +61,23 @@ struct InspectElementResolver: Codable, Equatable {
     let windowFrame: CGRect
     let path: [Int]
     let rawRole: String
+    let rawSubrole: String?
     let rawTitle: String?
     let rawDescription: String?
+    let rawHelp: String?
     let rawValue: String?
     let screenFrame: CGRect?
     let actions: [String]
     let valueSettable: Bool
+}
+
+struct InspectElementNameInfo {
+    let role: String
+    let title: String?
+    let description: String?
+    let help: String?
+    let value: String?
+    let subrole: String?
 }
 
 struct InspectData: Codable, Equatable {
@@ -712,18 +723,24 @@ enum LiveInspectSystem {
         }
 
         let rawRole = try stringAttribute(element, attribute: kAXRoleAttribute as CFString) ?? "AXUnknown"
+        let rawSubrole = try stringAttribute(element, attribute: kAXSubroleAttribute as CFString)
         let rawTitle = try stringAttribute(element, attribute: kAXTitleAttribute as CFString)
         let rawDescription = try stringAttribute(element, attribute: kAXDescriptionAttribute as CFString)
+        let rawHelp = try stringAttribute(element, attribute: kAXHelpAttribute as CFString)
         let rawValue = try stringValueAttribute(element, attribute: kAXValueAttribute as CFString)
         let enabled = try boolAttribute(element, attribute: kAXEnabledAttribute as CFString)
         let screenFrame = try frameAttribute(element)
         let actions = try actionNames(element)
         let valueSettable = try isValueSettable(element)
-        let name = displayName(
-            role: rawRole,
-            title: rawTitle,
-            description: rawDescription,
-            value: rawValue
+        let name = inspectElementName(
+            .init(
+                role: rawRole,
+                title: rawTitle,
+                description: rawDescription,
+                help: rawHelp,
+                value: rawValue,
+                subrole: rawSubrole
+            )
         )
 
         if shouldIncludeElement(role: rawRole, actions: actions, name: name) {
@@ -743,8 +760,10 @@ enum LiveInspectSystem {
                         windowFrame: context.window.frame,
                         path: path,
                         rawRole: rawRole,
+                        rawSubrole: rawSubrole,
                         rawTitle: rawTitle,
                         rawDescription: rawDescription,
+                        rawHelp: rawHelp,
                         rawValue: rawValue,
                         screenFrame: screenFrame,
                         actions: actions,
@@ -937,28 +956,6 @@ enum LiveInspectSystem {
         }
     }
 
-    private static func displayName(
-        role: String,
-        title: String?,
-        description: String?,
-        value: String?
-    ) -> String {
-        let preferred = [title, description].compactMap { text in
-            let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            return trimmed.isEmpty ? nil : trimmed
-        }
-        if let first = preferred.first {
-            return first
-        }
-        if role == "AXStaticText" || role == "AXTextField" || role == "AXTextArea" || role == "AXSecureTextField" {
-            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if !trimmed.isEmpty {
-                return trimmed
-            }
-        }
-        return ""
-    }
-
     private static func publicValue(name: String, rawValue: String?) -> String? {
         let trimmed = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !trimmed.isEmpty, trimmed != name else {
@@ -1045,10 +1042,8 @@ enum LiveInspectSystem {
                 return names
             }
             return []
-        case .attributeUnsupported, .noValue:
-            return []
         default:
-            throw InspectError.captureFailed("failed to read accessibility actions")
+            return []
         }
     }
 
@@ -1109,7 +1104,7 @@ enum LiveInspectSystem {
         switch error {
         case .success:
             return value
-        case .noValue, .attributeUnsupported:
+        case .noValue, .attributeUnsupported, .cannotComplete, .failure, .invalidUIElement:
             return nil
         default:
             throw InspectError.captureFailed(
@@ -1181,6 +1176,47 @@ private func snapshotSortsBefore(
         return lhs.number > rhs.number
     }
     return lhs.createdAt > rhs.createdAt
+}
+
+func inspectElementName(_ info: InspectElementNameInfo) -> String {
+    if let first = [info.title, info.description].compactMap(inspectTrimmedText).first {
+        return first
+    }
+    if info.role == "AXButton", let subroleName = inspectButtonName(info.subrole) {
+        return subroleName
+    }
+    if
+        info.role == "AXStaticText"
+        || info.role == "AXTextField"
+        || info.role == "AXTextArea"
+        || info.role == "AXSecureTextField"
+    {
+        if let trimmedValue = inspectTrimmedText(info.value) {
+            return trimmedValue
+        }
+    }
+    if let trimmedHelp = inspectTrimmedText(info.help) {
+        return trimmedHelp
+    }
+    return ""
+}
+
+private func inspectButtonName(_ subrole: String?) -> String? {
+    switch subrole {
+    case "AXCloseButton":
+        return "close button"
+    case "AXFullScreenButton", "AXZoomButton":
+        return "full screen button"
+    case "AXMinimizeButton":
+        return "minimize button"
+    default:
+        return nil
+    }
+}
+
+private func inspectTrimmedText(_ text: String?) -> String? {
+    let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return trimmed.isEmpty ? nil : trimmed
 }
 
 private func runOnMainThread<T>(_ body: () throws -> T) rethrows -> T {
