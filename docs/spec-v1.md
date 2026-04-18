@@ -23,6 +23,7 @@ wire [--plain] [--verbose|-v] permissions grant
 wire [--plain] [--verbose|-v] permissions status
 
 wire app list
+wire app ls
 wire app launch <app> [--open <path-or-url> ...] [--wait] [--focus]
 wire app quit <app>
 

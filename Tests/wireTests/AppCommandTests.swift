@@ -13,6 +13,7 @@ final class AppCommandTests: WireCommandTestCase {
 
         XCTAssertEqual(exitCode, 0)
         XCTAssertTrue(output.stdout.contains("USAGE: wire app"))
+        XCTAssertTrue(output.stdout.contains("list"))
         XCTAssertTrue(output.stdout.contains("launch"))
         XCTAssertEqual(output.stderr, "")
     }
@@ -28,6 +29,7 @@ final class AppCommandTests: WireCommandTestCase {
 
         XCTAssertEqual(exitCode, 0)
         XCTAssertTrue(output.stdout.contains("USAGE: wire app"))
+        XCTAssertTrue(output.stdout.contains("list"))
         XCTAssertTrue(output.stdout.contains("launch"))
         XCTAssertEqual(output.stderr, "")
     }

@@ -20,13 +20,16 @@ enum AppLaunchTarget: Equatable {
 struct AppClient {
     var resolveApplicationURL: (_ target: AppLaunchTarget, _ currentDirectoryPath: String) async throws -> URL
     var launchApplication: (_ appURL: URL, _ openTargets: [URL], _ activates: Bool) async throws -> any RunningApplicationHandle
+    var listApplications: () async throws -> [AppListEntry]
 
     init(
         resolveApplicationURL: @escaping (_ target: AppLaunchTarget, _ currentDirectoryPath: String) async throws -> URL,
-        launchApplication: @escaping (_ appURL: URL, _ openTargets: [URL], _ activates: Bool) async throws -> any RunningApplicationHandle
+        launchApplication: @escaping (_ appURL: URL, _ openTargets: [URL], _ activates: Bool) async throws -> any RunningApplicationHandle,
+        listApplications: @escaping () async throws -> [AppListEntry]
     ) {
         self.resolveApplicationURL = resolveApplicationURL
         self.launchApplication = launchApplication
+        self.listApplications = listApplications
     }
 
     static func live() -> AppClient {
@@ -43,8 +46,35 @@ struct AppClient {
                     openTargets: openTargets,
                     activates: activates
                 )
+            },
+            listApplications: {
+                try LiveAppSystem.listApplications()
             }
         )
+    }
+}
+
+struct AppListEntry: Codable, Equatable {
+    let name: String
+    let bundleId: String?
+    let path: String?
+    let pid: Int32?
+    let running: Bool
+}
+
+struct AppListData: Codable, Equatable {
+    let apps: [AppListEntry]
+
+    func plainText() -> String {
+        apps.map { app in
+            [
+                app.name,
+                app.bundleId ?? "-",
+                app.running ? "running" : "installed",
+                app.pid.map(String.init) ?? "-",
+                app.path ?? "-",
+            ].joined(separator: "\t")
+        }.joined(separator: "\n")
     }
 }
 
@@ -197,7 +227,63 @@ struct AppLaunchService {
     }
 }
 
+struct AppListService {
+    let client: AppClient
+
+    func list() async throws -> AppListData {
+        let apps = try await client.listApplications()
+        return AppListData(
+            apps: apps.sorted {
+                let lhs = ($0.name.lowercased(), $0.bundleId ?? "", $0.path ?? "")
+                let rhs = ($1.name.lowercased(), $1.bundleId ?? "", $1.path ?? "")
+                return lhs < rhs
+            }
+        )
+    }
+}
+
 enum LiveAppSystem {
+    static func listApplications() throws -> [AppListEntry] {
+        mainThread {
+            var appsByKey: [String: AppListEntry] = [:]
+
+            for appURL in discoverableApplicationURLs() {
+                let bundle = Bundle(url: appURL)
+                let name = appURL.deletingPathExtension().lastPathComponent
+                let bundleId = bundle?.bundleIdentifier
+                let entry = AppListEntry(
+                    name: name,
+                    bundleId: bundleId,
+                    path: appURL.path,
+                    pid: nil,
+                    running: false
+                )
+                appsByKey[applicationKey(bundleId: bundleId, path: appURL.path, name: name)] = entry
+            }
+
+            for application in NSWorkspace.shared.runningApplications where application.activationPolicy != .prohibited {
+                let name =
+                    application.localizedName
+                    ?? application.bundleURL?.deletingPathExtension().lastPathComponent
+                    ?? application.bundleIdentifier
+                    ?? "Unknown"
+                let bundleId = application.bundleIdentifier
+                let path = application.bundleURL?.path
+                let key = applicationKey(bundleId: bundleId, path: path, name: name)
+                let existing = appsByKey[key]
+                appsByKey[key] = AppListEntry(
+                    name: existing?.name ?? name,
+                    bundleId: bundleId ?? existing?.bundleId,
+                    path: path ?? existing?.path,
+                    pid: application.processIdentifier,
+                    running: true
+                )
+            }
+
+            return Array(appsByKey.values)
+        }
+    }
+
     static func resolveApplicationURL(
         target: AppLaunchTarget,
         currentDirectoryPath: String
@@ -283,6 +369,38 @@ enum LiveAppSystem {
             }
         }
         return nil
+    }
+
+    private static func discoverableApplicationURLs() -> [URL] {
+        var applicationURLs: [URL] = []
+        for directory in applicationSearchDirectories where FileManager.default.fileExists(atPath: directory.path) {
+            guard let enumerator = FileManager.default.enumerator(
+                at: directory,
+                includingPropertiesForKeys: [.isDirectoryKey, .isPackageKey],
+                options: [.skipsHiddenFiles]
+            ) else {
+                continue
+            }
+
+            while let fileURL = enumerator.nextObject() as? URL {
+                guard fileURL.pathExtension == "app" else {
+                    continue
+                }
+                applicationURLs.append(fileURL)
+                enumerator.skipDescendants()
+            }
+        }
+        return applicationURLs
+    }
+
+    private static func applicationKey(bundleId: String?, path: String?, name: String) -> String {
+        if let bundleId, !bundleId.isEmpty {
+            return "bundle:\(bundleId)"
+        }
+        if let path, !path.isEmpty {
+            return "path:\(path)"
+        }
+        return "name:\(name)"
     }
 
     private static var applicationSearchDirectories: [URL] {

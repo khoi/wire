@@ -120,6 +120,7 @@ final class AppState {
     var launchCalls: [LaunchCall] = []
     var launchedApplications: [StubRunningApplication] = []
     var launchError: Error?
+    var listedApplications: [AppListEntry] = []
 
     func makeClient() -> AppClient {
         AppClient(
@@ -152,6 +153,9 @@ final class AppState {
                     return self.launchedApplications.removeFirst()
                 }
                 return StubRunningApplication()
+            },
+            listApplications: {
+                self.listedApplications
             }
         )
     }
@@ -208,4 +212,20 @@ struct AppLaunchApp: Decodable, Equatable {
     let name: String
     let bundleId: String?
     let pid: Int32
+}
+
+struct AppListEnvelope: Decodable, Equatable {
+    let data: AppListPayload
+}
+
+struct AppListPayload: Decodable, Equatable {
+    let apps: [AppListItem]
+}
+
+struct AppListItem: Decodable, Equatable {
+    let name: String
+    let bundleId: String?
+    let path: String?
+    let pid: Int32?
+    let running: Bool
 }
