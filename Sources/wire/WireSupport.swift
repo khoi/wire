@@ -83,7 +83,7 @@ struct Logger {
         guard isVerbose else {
             return
         }
-        write("[wire] \(message)\n")
+        write("[verbose] \(message)\n")
     }
 }
 
