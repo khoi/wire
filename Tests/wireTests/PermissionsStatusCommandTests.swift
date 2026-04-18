@@ -15,7 +15,6 @@ final class PermissionsStatusCommandTests: WireCommandTestCase {
         XCTAssertEqual(output.stderr, "")
 
         let response = try decode(StatusEnvelope.self, from: output.stdout)
-        XCTAssertTrue(response.ok)
         XCTAssertEqual(
             response.data.permissions,
             [
@@ -85,7 +84,6 @@ final class PermissionsStatusCommandTests: WireCommandTestCase {
         XCTAssertEqual(output.stderr, "")
 
         let response = try decode(ErrorEnvelope.self, from: output.stdout)
-        XCTAssertFalse(response.ok)
         XCTAssertEqual(response.error.code, "parse_error")
         XCTAssertTrue(response.error.message.contains("--nope"))
     }
@@ -103,7 +101,6 @@ final class PermissionsStatusCommandTests: WireCommandTestCase {
         XCTAssertEqual(output.stderr, "")
 
         let response = try decode(ErrorEnvelope.self, from: output.stdout)
-        XCTAssertFalse(response.ok)
         XCTAssertEqual(response.error.code, "parse_error")
         XCTAssertTrue(response.error.message.contains("--nope"))
     }

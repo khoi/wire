@@ -68,7 +68,6 @@ final class OutputCapture {
 }
 
 struct StatusEnvelope: Decodable, Equatable {
-    let ok: Bool
     let data: StatusData
 }
 
@@ -82,7 +81,6 @@ struct StatusPermission: Decodable, Equatable {
 }
 
 struct GrantEnvelope: Decodable, Equatable {
-    let ok: Bool
     let data: GrantData
 }
 
@@ -97,7 +95,6 @@ struct GrantPermission: Decodable, Equatable {
 }
 
 struct ErrorEnvelope: Decodable, Equatable {
-    let ok: Bool
     let error: ErrorBody
 }
 

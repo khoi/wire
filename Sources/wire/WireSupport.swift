@@ -145,12 +145,10 @@ struct PermissionsGrantData: Codable, Equatable {
 }
 
 struct SuccessEnvelope<Payload: Encodable>: Encodable {
-    let ok = true
     let data: Payload
 }
 
 struct FailureEnvelope: Encodable {
-    let ok = false
     let error: FailureBody
 }
 

@@ -112,7 +112,6 @@ Base success shape:
 
 ```json
 {
-  "ok": true,
   "snapshot": "s7",
   "data": {}
 }
@@ -122,7 +121,6 @@ Base error shape:
 
 ```json
 {
-  "ok": false,
   "error": {
     "code": "stale_ref",
     "message": "@e1 is no longer valid"
@@ -195,7 +193,6 @@ Example `see` result:
 
 ```json
 {
-  "ok": true,
   "snapshot": "s7",
   "data": {
     "app": {
