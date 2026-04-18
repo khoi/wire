@@ -7,19 +7,11 @@ struct PermissionsGrantCommand: ParsableCommand, WireExecutableCommand {
 
     func execute(context: CommandContext) throws -> CommandExecution {
         let service = PermissionsService(client: context.permissions, logger: context.logger)
-        do {
-            let data = try service.grant()
-            return try CommandExecution.success(
-                data: data,
-                plainText: data.plainText(),
-                exitCode: data.ready ? 0 : 1
-            )
-        } catch let error as PermissionsServiceError {
-            throw WireFailure(
-                code: error.code,
-                message: error.message,
-                exitCode: 1
-            )
-        }
+        let data = try service.grant()
+        return try CommandExecution.success(
+            data: data,
+            plainText: data.plainText(),
+            exitCode: data.ready ? 0 : 1
+        )
     }
 }

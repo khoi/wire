@@ -91,7 +91,7 @@ struct Logger {
         guard isVerbose else {
             return
         }
-        write("[info] \(message)\n")
+        write("[wire] \(message)\n")
     }
 }
 
@@ -203,11 +203,13 @@ struct CommandExecution {
     }
 }
 
-struct WireFailure: Error {
-    let code: String
-    let message: String
-    let exitCode: Int32
+protocol WireError: Error {
+    var code: String { get }
+    var message: String { get }
+    var exitCode: Int32 { get }
+}
 
+extension WireError {
     func write(options: OutputOptions, environment: WireEnvironment) {
         if options.plain {
             environment.stdout(terminated(message))
@@ -224,7 +226,29 @@ struct WireFailure: Error {
     }
 }
 
-enum PermissionsServiceError: Error {
+enum WireRuntimeError: WireError {
+    case parse(String)
+
+    var code: String {
+        switch self {
+        case .parse:
+            return "parse_error"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .parse(let message):
+            return message
+        }
+    }
+
+    var exitCode: Int32 {
+        64
+    }
+}
+
+enum PermissionsServiceError: WireError {
     case status(PermissionKind, Error)
     case request(PermissionKind, Error)
 
@@ -244,6 +268,10 @@ enum PermissionsServiceError: Error {
         case .request(let kind, let error):
             return "failed to request \(kind.rawValue) permission: \(String(describing: error))"
         }
+    }
+
+    var exitCode: Int32 {
+        1
     }
 }
 

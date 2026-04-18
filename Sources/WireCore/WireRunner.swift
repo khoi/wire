@@ -29,18 +29,14 @@ public enum WireRunner {
 
             environment.stdout(Wire.helpMessage())
             return 0
-        } catch let error as WireFailure {
+        } catch let error as any WireError {
             error.write(options: detectedOptions, environment: environment)
             return error.exitCode
         } catch let error as CleanExit {
             environment.stdout(Wire.message(for: error))
             return 0
         } catch {
-            let failure = WireFailure(
-                code: "parse_error",
-                message: Wire.message(for: error),
-                exitCode: 64
-            )
+            let failure = WireRuntimeError.parse(Wire.message(for: error))
             failure.write(options: detectedOptions, environment: environment)
             return failure.exitCode
         }
