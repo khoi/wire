@@ -3,7 +3,7 @@ import ArgumentParser
 struct InspectCommand: ParsableCommand, WireExecutableCommand {
     static let configuration = CommandConfiguration(
         commandName: "inspect",
-        abstract: "Inspect the current UI",
+        abstract: "Inspect an app, create snapshot, get elements ids",
         discussion: """
         EXAMPLES:
           wire inspect
