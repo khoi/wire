@@ -30,9 +30,11 @@ final class PermissionsCommandTests: WireCommandTestCase {
         XCTAssertEqual(exitCode, 0)
         XCTAssertTrue(output.stdout.contains("USAGE: wire"))
         XCTAssertTrue(output.stdout.contains("app"))
+        XCTAssertTrue(output.stdout.contains("Manage running applications"))
         XCTAssertTrue(output.stdout.contains("click"))
         XCTAssertTrue(output.stdout.contains("inspect"))
         XCTAssertTrue(output.stdout.contains("permissions"))
+        XCTAssertTrue(output.stdout.contains("Check and grant required permissions"))
         XCTAssertEqual(output.stderr, "")
     }
 }
