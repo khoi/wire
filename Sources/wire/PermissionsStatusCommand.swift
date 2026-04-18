@@ -8,7 +8,7 @@ struct PermissionsStatusCommand: ParsableCommand, WireExecutableCommand {
     func execute(context: CommandContext) throws -> CommandExecution {
         let service = PermissionsService(client: context.permissions, logger: context.logger)
         let data = try service.status()
-        return try CommandExecution.success(
+        return CommandExecution.success(
             data: data,
             plainText: data.plainText()
         )

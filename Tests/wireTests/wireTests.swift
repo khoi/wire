@@ -142,12 +142,46 @@ final class WireTests: XCTestCase {
         XCTAssertTrue(response.data.ready)
     }
 
+    func testPermissionsCommandPrintsPermissionsHelp() {
+        let state = PermissionState(accessibility: true, screenRecording: true)
+        let output = OutputCapture()
+
+        let exitCode = WireRunner.run(
+            arguments: ["permissions"],
+            environment: environment(state: state, output: output)
+        )
+
+        XCTAssertEqual(exitCode, 0)
+        XCTAssertTrue(output.stdout.contains("USAGE: wire permissions"))
+        XCTAssertTrue(output.stdout.contains("status"))
+        XCTAssertTrue(output.stdout.contains("grant"))
+        XCTAssertEqual(output.stderr, "")
+    }
+
     func testParseErrorsReturnStructuredJSON() throws {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let output = OutputCapture()
 
         let exitCode = WireRunner.run(
             arguments: ["permissions", "status", "--nope"],
+            environment: environment(state: state, output: output)
+        )
+
+        XCTAssertEqual(exitCode, 64)
+        XCTAssertEqual(output.stderr, "")
+
+        let response = try decode(ErrorEnvelope.self, from: output.stdout)
+        XCTAssertFalse(response.ok)
+        XCTAssertEqual(response.error.code, "parse_error")
+        XCTAssertTrue(response.error.message.contains("--nope"))
+    }
+
+    func testParseErrorsIgnorePlainFlagAndReturnJSON() throws {
+        let state = PermissionState(accessibility: true, screenRecording: true)
+        let output = OutputCapture()
+
+        let exitCode = WireRunner.run(
+            arguments: ["--plain", "permissions", "status", "--nope"],
             environment: environment(state: state, output: output)
         )
 

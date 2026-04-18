@@ -3,13 +3,13 @@ import ArgumentParser
 @preconcurrency import CoreGraphics
 import Foundation
 
-public struct PermissionsClient: Sendable {
+struct PermissionsClient: Sendable {
     var accessibilityStatus: @Sendable () throws -> Bool
     var accessibilityRequest: @Sendable () throws -> Bool
     var screenRecordingStatus: @Sendable () throws -> Bool
     var screenRecordingRequest: @Sendable () throws -> Bool
 
-    public init(
+    init(
         accessibilityStatus: @escaping @Sendable () throws -> Bool,
         accessibilityRequest: @escaping @Sendable () throws -> Bool,
         screenRecordingStatus: @escaping @Sendable () throws -> Bool,
@@ -21,7 +21,7 @@ public struct PermissionsClient: Sendable {
         self.screenRecordingRequest = screenRecordingRequest
     }
 
-    public static let live = PermissionsClient(
+    static let live = PermissionsClient(
         accessibilityStatus: {
             AXIsProcessTrusted()
         },
@@ -38,12 +38,12 @@ public struct PermissionsClient: Sendable {
     )
 }
 
-public struct WireEnvironment {
-    public var permissions: PermissionsClient
-    public var stdout: (String) -> Void
-    public var stderr: (String) -> Void
+struct WireEnvironment {
+    var permissions: PermissionsClient
+    var stdout: (String) -> Void
+    var stderr: (String) -> Void
 
-    public init(
+    init(
         permissions: PermissionsClient,
         stdout: @escaping (String) -> Void,
         stderr: @escaping (String) -> Void
@@ -53,7 +53,7 @@ public struct WireEnvironment {
         self.stderr = stderr
     }
 
-    public static func live(permissions: PermissionsClient = .live) -> WireEnvironment {
+    static func live(permissions: PermissionsClient = .live) -> WireEnvironment {
         WireEnvironment(
             permissions: permissions,
             stdout: { text in
@@ -72,14 +72,6 @@ struct OutputOptions: ParsableArguments {
 
     @Flag(name: [.customLong("verbose"), .short], help: "Write verbose logs to stderr.")
     var verbose = false
-
-    static func detect(arguments: [String]) -> OutputOptions {
-        var options = OutputOptions()
-        options.plain = arguments.contains("--plain")
-        options.verbose = arguments.contains("--verbose") || arguments.contains("-v")
-        return options
-    }
-
     init() {}
 }
 
@@ -189,11 +181,11 @@ struct CommandExecution {
         data: Payload,
         plainText: String,
         exitCode: Int32 = 0
-    ) throws -> CommandExecution {
-        return CommandExecution(
+    ) -> CommandExecution {
+        CommandExecution(
             exitCode: exitCode,
             plainText: plainText,
-            jsonText: try encodeJSON(SuccessEnvelope(data: data))
+            jsonText: encodeJSON(SuccessEnvelope(data: data))
         )
     }
 
@@ -215,8 +207,12 @@ extension WireError {
             environment.stdout(terminated(message))
             return
         }
+        writeJSON(environment: environment)
+    }
+
+    func writeJSON(environment: WireEnvironment) {
         let payload = FailureEnvelope(error: FailureBody(code: code, message: message))
-        environment.stdout(terminated(encodeFailureJSON(payload)))
+        environment.stdout(terminated(encodeJSON(payload)))
     }
 }
 
@@ -364,29 +360,13 @@ private func terminated(_ text: String) -> String {
     text.hasSuffix("\n") ? text : text + "\n"
 }
 
-private func encodeJSON<Value: Encodable>(_ value: Value) throws -> String {
+private func encodeJSON<Value: Encodable>(_ value: Value) -> String {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
-    let data = try encoder.encode(value)
-    return String(decoding: data, as: UTF8.self)
-}
-
-private func encodeFailureJSON(_ value: FailureEnvelope) -> String {
-    if let text = try? encodeJSON(value) {
-        return text
+    do {
+        let data = try encoder.encode(value)
+        return String(decoding: data, as: UTF8.self)
+    } catch {
+        preconditionFailure("failed to encode JSON: \(error)")
     }
-    let object: [String: Any] = [
-        "ok": false,
-        "error": [
-            "code": value.error.code,
-            "message": value.error.message,
-        ],
-    ]
-    if
-        let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]),
-        let text = String(data: data, encoding: .utf8)
-    {
-        return text
-    }
-    fatalError("failed to encode failure payload")
 }
