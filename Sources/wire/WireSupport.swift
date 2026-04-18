@@ -108,8 +108,7 @@ struct PermissionStatusEntry: Codable, Equatable {
 
 struct PermissionGrantEntry: Codable, Equatable {
     let kind: PermissionKind
-    let before: Bool
-    let after: Bool
+    let granted: Bool
     let requested: Bool
 }
 
@@ -136,7 +135,7 @@ struct PermissionsGrantData: Codable, Equatable {
 
     func plainText() -> String {
         permissions.map { entry in
-            var line = "\(entry.kind.rawValue): \(entry.after ? "granted" : "missing")"
+            var line = "\(entry.kind.rawValue): \(entry.granted ? "granted" : "missing")"
             if entry.requested {
                 line += " requested"
             }
@@ -291,12 +290,11 @@ struct PermissionsService {
         let requested = Set(missing)
 
         return PermissionsGrantData(
-            permissions: PermissionKind.allCases.map { kind in
+            permissions: after.map { entry in
                 PermissionGrantEntry(
-                    kind: kind,
-                    before: value(for: kind, in: before),
-                    after: value(for: kind, in: after),
-                    requested: requested.contains(kind)
+                    kind: entry.kind,
+                    granted: entry.granted,
+                    requested: requested.contains(entry.kind)
                 )
             }
         )
@@ -332,10 +330,6 @@ struct PermissionsService {
         } catch {
             throw PermissionsServiceError.request(kind, error)
         }
-    }
-
-    private func value(for kind: PermissionKind, in entries: [PermissionStatusEntry]) -> Bool {
-        entries.first(where: { $0.kind == kind })?.granted ?? false
     }
 }
 

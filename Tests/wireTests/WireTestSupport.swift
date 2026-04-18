@@ -92,8 +92,7 @@ struct GrantData: Decodable, Equatable {
 
 struct GrantPermission: Decodable, Equatable {
     let kind: String
-    let before: Bool
-    let after: Bool
+    let granted: Bool
     let requested: Bool
 }
 

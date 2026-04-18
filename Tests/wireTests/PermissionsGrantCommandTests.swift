@@ -21,8 +21,8 @@ final class PermissionsGrantCommandTests: WireCommandTestCase {
         XCTAssertEqual(
             response.data.permissions,
             [
-                .init(kind: "accessibility", before: false, after: true, requested: true),
-                .init(kind: "screen-recording", before: true, after: true, requested: false),
+                .init(kind: "accessibility", granted: true, requested: true),
+                .init(kind: "screen-recording", granted: true, requested: false),
             ]
         )
     }
@@ -45,8 +45,8 @@ final class PermissionsGrantCommandTests: WireCommandTestCase {
         XCTAssertEqual(
             response.data.permissions,
             [
-                .init(kind: "accessibility", before: true, after: true, requested: false),
-                .init(kind: "screen-recording", before: false, after: false, requested: true),
+                .init(kind: "accessibility", granted: true, requested: false),
+                .init(kind: "screen-recording", granted: false, requested: true),
             ]
         )
     }
@@ -68,8 +68,8 @@ final class PermissionsGrantCommandTests: WireCommandTestCase {
         XCTAssertEqual(
             response.data.permissions,
             [
-                .init(kind: "accessibility", before: true, after: true, requested: false),
-                .init(kind: "screen-recording", before: true, after: true, requested: false),
+                .init(kind: "accessibility", granted: true, requested: false),
+                .init(kind: "screen-recording", granted: true, requested: false),
             ]
         )
     }
