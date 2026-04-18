@@ -13,6 +13,9 @@ final class AppLaunchCommandTests: WireCommandTestCase {
 
         XCTAssertEqual(exitCode, 0)
         XCTAssertTrue(output.stdout.contains("USAGE: wire app launch"))
+        XCTAssertTrue(output.stdout.contains("EXAMPLES:"))
+        XCTAssertTrue(output.stdout.contains("wire app launch \"Google Chrome\" --focus"))
+        XCTAssertTrue(output.stdout.contains("wire app launch --bundle-id com.apple.TextEdit --wait"))
         XCTAssertTrue(output.stdout.contains("--bundle-id"))
         XCTAssertTrue(output.stdout.contains("--open"))
         XCTAssertEqual(output.stderr, "")
@@ -29,6 +32,7 @@ final class AppLaunchCommandTests: WireCommandTestCase {
 
         XCTAssertEqual(exitCode, 0)
         XCTAssertTrue(output.stdout.contains("USAGE: wire app launch"))
+        XCTAssertTrue(output.stdout.contains("EXAMPLES:"))
         XCTAssertTrue(output.stdout.contains("--bundle-id"))
         XCTAssertEqual(output.stderr, "")
     }

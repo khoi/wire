@@ -3,7 +3,14 @@ import ArgumentParser
 struct AppLaunchCommand: ParsableCommand, WireExecutableCommand {
     static let configuration = CommandConfiguration(
         commandName: "launch",
-        abstract: "Launch an application"
+        abstract: "Launch an application",
+        discussion: """
+        EXAMPLES:
+          wire app launch "Google Chrome" --focus
+          wire app launch --bundle-id com.apple.TextEdit --wait
+          wire app launch "Google Chrome" --open https://example.com --focus
+          wire app launch Preview --open notes.txt --wait
+        """
     )
 
     @Argument(help: "Application name or path")

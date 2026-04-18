@@ -3,7 +3,14 @@ import ArgumentParser
 struct AppQuitCommand: ParsableCommand, WireExecutableCommand {
     static let configuration = CommandConfiguration(
         commandName: "quit",
-        abstract: "Quit running applications"
+        abstract: "Quit running applications",
+        discussion: """
+        EXAMPLES:
+          wire app quit "Google Chrome"
+          wire app quit "Google Chrome" --force
+          wire app quit --pid 12345
+          wire app quit --pid 12345 --force
+        """
     )
 
     @Argument(help: "Application name")

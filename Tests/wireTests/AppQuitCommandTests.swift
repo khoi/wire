@@ -13,6 +13,9 @@ final class AppQuitCommandTests: WireCommandTestCase {
 
         XCTAssertEqual(exitCode, 0)
         XCTAssertTrue(output.stdout.contains("USAGE: wire app quit"))
+        XCTAssertTrue(output.stdout.contains("EXAMPLES:"))
+        XCTAssertTrue(output.stdout.contains("wire app quit \"Google Chrome\""))
+        XCTAssertTrue(output.stdout.contains("wire app quit --pid 12345 --force"))
         XCTAssertTrue(output.stdout.contains("--pid"))
         XCTAssertTrue(output.stdout.contains("--force"))
         XCTAssertEqual(output.stderr, "")
@@ -29,6 +32,7 @@ final class AppQuitCommandTests: WireCommandTestCase {
 
         XCTAssertEqual(exitCode, 0)
         XCTAssertTrue(output.stdout.contains("USAGE: wire app quit"))
+        XCTAssertTrue(output.stdout.contains("EXAMPLES:"))
         XCTAssertTrue(output.stdout.contains("--pid"))
         XCTAssertEqual(output.stderr, "")
     }
