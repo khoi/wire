@@ -33,8 +33,7 @@ final class InspectCommandTests: WireCommandTestCase {
                 role: "text-field",
                 name: "Search",
                 value: nil,
-                enabled: true,
-                frame: CGRect(x: 20, y: 52, width: 320, height: 28)
+                enabled: true
             )
         ])
         XCTAssertTrue(FileManager.default.fileExists(atPath: envelope.data.imagePath))

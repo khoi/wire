@@ -220,13 +220,7 @@ Example `inspect` result:
         "id": "@e1",
         "role": "text-field",
         "name": "Search",
-        "enabled": true,
-        "frame": {
-          "x": 20,
-          "y": 52,
-          "width": 320,
-          "height": 28
-        }
+        "enabled": true
       },
       {
         "id": "@e2",

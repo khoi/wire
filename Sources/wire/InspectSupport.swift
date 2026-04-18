@@ -83,7 +83,6 @@ struct InspectData: Codable, Equatable {
         let name: String
         let value: String?
         let enabled: Bool?
-        let frame: CGRect?
     }
 
     let app: App
@@ -127,7 +126,6 @@ struct StoredInspectSnapshot: Codable, Equatable {
         let name: String
         let value: String?
         let enabled: Bool?
-        let frame: CGRect?
         let resolver: InspectElementResolver
 
         var publicElement: InspectData.Element {
@@ -136,8 +134,7 @@ struct StoredInspectSnapshot: Codable, Equatable {
                 role: role,
                 name: name,
                 value: value,
-                enabled: enabled,
-                frame: frame
+                enabled: enabled
             )
         }
     }
@@ -346,16 +343,12 @@ struct SnapshotStore {
     private func storedElements(from inspection: CapturedInspection) -> [StoredInspectSnapshot.Element] {
         let sorted = inspection.elements
             .compactMap { candidate in
-                let publicFrame = candidate.screenFrame.map {
-                    windowRelativeFrame($0, in: inspection.window.frame)
-                }
                 return StoredInspectSnapshot.Element(
                     id: "",
                     role: candidate.role,
                     name: candidate.name,
                     value: candidate.value,
                     enabled: candidate.enabled,
-                    frame: publicFrame,
                     resolver: candidate.resolver
                 )
             }
@@ -380,14 +373,13 @@ struct SnapshotStore {
                 name: element.name,
                 value: element.value,
                 enabled: element.enabled,
-                frame: element.frame,
                 resolver: element.resolver
             )
         }
     }
 
     private func dedupeKey(for element: StoredInspectSnapshot.Element) -> String {
-        let frame = element.frame.map {
+        let frame = element.resolver.screenFrame.map {
             [
                 Int($0.origin.x.rounded()),
                 Int($0.origin.y.rounded()),
@@ -519,14 +511,6 @@ struct SnapshotStore {
         try data.write(to: url, options: .atomic)
     }
 
-    private func windowRelativeFrame(_ frame: CGRect, in windowFrame: CGRect) -> CGRect {
-        CGRect(
-            x: frame.minX - windowFrame.minX,
-            y: windowFrame.maxY - frame.maxY,
-            width: frame.width,
-            height: frame.height
-        )
-    }
 }
 
 enum LiveInspectSystem {
@@ -1164,7 +1148,7 @@ private func inspectElementSortsBefore(
     _ lhs: StoredInspectSnapshot.Element,
     _ rhs: StoredInspectSnapshot.Element
 ) -> Bool {
-    switch (lhs.frame, rhs.frame) {
+    switch (lhs.resolver.screenFrame, rhs.resolver.screenFrame) {
     case let (.some(lhsFrame), .some(rhsFrame)):
         if abs(lhsFrame.origin.y - rhsFrame.origin.y) >= 1 {
             return lhsFrame.origin.y < rhsFrame.origin.y

@@ -392,5 +392,4 @@ struct InspectItem: Decodable, Equatable {
     let name: String
     let value: String?
     let enabled: Bool?
-    let frame: CGRect?
 }
