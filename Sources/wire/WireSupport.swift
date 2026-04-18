@@ -85,7 +85,6 @@ struct OutputOptions: ParsableArguments {
 
     @Flag(name: [.customLong("verbose"), .short], help: "Write verbose logs to stderr.")
     var verbose = false
-    init() {}
 }
 
 struct Logger {
@@ -136,10 +135,6 @@ struct PermissionGrantEntry: Codable, Equatable {
 struct PermissionsStatusData: Codable, Equatable {
     let permissions: [PermissionStatusEntry]
 
-    init(permissions: [PermissionStatusEntry]) {
-        self.permissions = permissions
-    }
-
     func plainText() -> String {
         permissions.map { entry in
             "\(entry.kind.rawValue): \(entry.granted ? "granted" : "missing")"
@@ -149,10 +144,6 @@ struct PermissionsStatusData: Codable, Equatable {
 
 struct PermissionsGrantData: Codable, Equatable {
     let permissions: [PermissionGrantEntry]
-
-    init(permissions: [PermissionGrantEntry]) {
-        self.permissions = permissions
-    }
 
     func plainText() -> String {
         permissions.map { entry in
@@ -366,7 +357,10 @@ private func encodeJSON<Value: Encodable>(_ value: Value) -> String {
     encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
     do {
         let data = try encoder.encode(value)
-        return String(decoding: data, as: UTF8.self)
+        guard let text = String(bytes: data, encoding: .utf8) else {
+            preconditionFailure("failed to decode JSON output as UTF-8")
+        }
+        return text
     } catch {
         preconditionFailure("failed to encode JSON: \(error)")
     }

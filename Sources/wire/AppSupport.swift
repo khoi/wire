@@ -18,14 +18,25 @@ enum AppLaunchTarget: Equatable {
 }
 
 struct AppClient {
-    var resolveApplicationURL: (_ target: AppLaunchTarget, _ currentDirectoryPath: String) async throws -> URL
-    var launchApplication: (_ appURL: URL, _ openTargets: [URL], _ activates: Bool) async throws -> any RunningApplicationHandle
-    var listApplications: (_ includeAccessory: Bool) async throws -> [AppListEntry]
+    typealias ResolveApplicationURL = (
+        _ target: AppLaunchTarget,
+        _ currentDirectoryPath: String
+    ) async throws -> URL
+    typealias LaunchApplication = (
+        _ appURL: URL,
+        _ openTargets: [URL],
+        _ activates: Bool
+    ) async throws -> any RunningApplicationHandle
+    typealias ListApplications = (_ includeAccessory: Bool) async throws -> [AppListEntry]
+
+    var resolveApplicationURL: ResolveApplicationURL
+    var launchApplication: LaunchApplication
+    var listApplications: ListApplications
 
     init(
-        resolveApplicationURL: @escaping (_ target: AppLaunchTarget, _ currentDirectoryPath: String) async throws -> URL,
-        launchApplication: @escaping (_ appURL: URL, _ openTargets: [URL], _ activates: Bool) async throws -> any RunningApplicationHandle,
-        listApplications: @escaping (_ includeAccessory: Bool) async throws -> [AppListEntry]
+        resolveApplicationURL: @escaping ResolveApplicationURL,
+        launchApplication: @escaping LaunchApplication,
+        listApplications: @escaping ListApplications
     ) {
         self.resolveApplicationURL = resolveApplicationURL
         self.launchApplication = launchApplication
@@ -164,7 +175,9 @@ struct AppLaunchService {
         do {
             application = try await client.launchApplication(appURL, resolvedOpenTargets, focus)
         } catch {
-            throw AppLaunchError.launchFailed("failed to launch \(appURL.lastPathComponent): \(String(describing: error))")
+            throw AppLaunchError.launchFailed(
+                "failed to launch \(appURL.lastPathComponent): \(String(describing: error))"
+            )
         }
         if wait {
             logger.log("waiting for application to finish launching")
@@ -314,17 +327,21 @@ enum LiveAppSystem {
         openTargets: [URL],
         activates: Bool
     ) async throws -> any RunningApplicationHandle {
+        let emptyLaunch = AppLaunchError.launchFailed("launch returned no application")
         if openTargets.isEmpty {
             return try await withCheckedThrowingContinuation { continuation in
                 DispatchQueue.main.async {
                     let configuration = NSWorkspace.OpenConfiguration()
                     configuration.activates = activates
-                    NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { application, error in
+                    NSWorkspace.shared.openApplication(
+                        at: appURL,
+                        configuration: configuration
+                    ) { application, error in
                         if let application {
                             continuation.resume(returning: application)
                             return
                         }
-                        continuation.resume(throwing: error ?? AppLaunchError.launchFailed("launch returned no application"))
+                        continuation.resume(throwing: error ?? emptyLaunch)
                     }
                 }
             }
@@ -333,12 +350,16 @@ enum LiveAppSystem {
             DispatchQueue.main.async {
                 let configuration = NSWorkspace.OpenConfiguration()
                 configuration.activates = activates
-                NSWorkspace.shared.open(openTargets, withApplicationAt: appURL, configuration: configuration) { application, error in
+                NSWorkspace.shared.open(
+                    openTargets,
+                    withApplicationAt: appURL,
+                    configuration: configuration
+                ) { application, error in
                     if let application {
                         continuation.resume(returning: application)
                         return
                     }
-                    continuation.resume(throwing: error ?? AppLaunchError.launchFailed("launch returned no application"))
+                    continuation.resume(throwing: error ?? emptyLaunch)
                 }
             }
         }

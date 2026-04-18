@@ -1,0 +1,28 @@
+strict: true
+
+included:
+  - Sources
+  - Tests
+
+disabled_rules:
+  - file_length
+  - closure_parameter_position
+  - type_body_length
+  - identifier_name
+  - trailing_comma
+
+opt_in_rules:
+  - async_without_await
+
+opening_brace:
+  ignore_multiline_function_signatures: true
+  ignore_multiline_statement_conditions: true
+  ignore_multiline_type_headers: true
+
+cyclomatic_complexity:
+  warning: 15
+  error: 20
+
+function_body_length:
+  warning: 100
+  error: 150

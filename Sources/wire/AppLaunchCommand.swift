@@ -12,7 +12,11 @@ struct AppLaunchCommand: ParsableCommand, WireExecutableCommand {
     @Option(name: .customLong("bundle-id"), help: "Launch by bundle identifier")
     var bundleID: String?
 
-    @Option(name: .customLong("open"), parsing: .upToNextOption, help: "Document or URL to open immediately after launch")
+    @Option(
+        name: .customLong("open"),
+        parsing: .upToNextOption,
+        help: "Document or URL to open immediately after launch"
+    )
     var openTargets: [String] = []
 
     @Flag(help: "Wait until the application reports it finished launching")
