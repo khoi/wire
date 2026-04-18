@@ -42,20 +42,26 @@ struct PermissionsClient: Sendable {
 struct WireEnvironment {
     var permissions: PermissionsClient
     var apps: AppClient
+    var inspect: InspectClient
     var currentDirectoryPath: String
+    var stateDirectoryPath: String
     var stdout: (String) -> Void
     var stderr: (String) -> Void
 
     init(
         permissions: PermissionsClient,
         apps: AppClient,
+        inspect: InspectClient,
         currentDirectoryPath: String,
+        stateDirectoryPath: String,
         stdout: @escaping (String) -> Void,
         stderr: @escaping (String) -> Void
     ) {
         self.permissions = permissions
         self.apps = apps
+        self.inspect = inspect
         self.currentDirectoryPath = currentDirectoryPath
+        self.stateDirectoryPath = stateDirectoryPath
         self.stdout = stdout
         self.stderr = stderr
     }
@@ -63,12 +69,16 @@ struct WireEnvironment {
     static func live(
         permissions: PermissionsClient = .live,
         apps: AppClient? = nil,
-        currentDirectoryPath: String = FileManager.default.currentDirectoryPath
+        inspect: InspectClient? = nil,
+        currentDirectoryPath: String = FileManager.default.currentDirectoryPath,
+        stateDirectoryPath: String = FileManager.default.temporaryDirectory.path
     ) -> WireEnvironment {
         WireEnvironment(
             permissions: permissions,
             apps: apps ?? .live(),
+            inspect: inspect ?? .live(),
             currentDirectoryPath: currentDirectoryPath,
+            stateDirectoryPath: stateDirectoryPath,
             stdout: { text in
                 FileHandle.standardOutput.write(Data(text.utf8))
             },
@@ -111,8 +121,16 @@ struct CommandContext {
         environment.apps
     }
 
+    var inspect: InspectClient {
+        environment.inspect
+    }
+
     var currentDirectoryPath: String {
         environment.currentDirectoryPath
+    }
+
+    var stateDirectoryPath: String {
+        environment.stateDirectoryPath
     }
 }
 
@@ -157,7 +175,19 @@ struct PermissionsGrantData: Codable, Equatable {
 }
 
 struct SuccessEnvelope<Payload: Encodable>: Encodable {
+    let snapshot: String?
     let data: Payload
+
+    private enum CodingKeys: String, CodingKey {
+        case snapshot
+        case data
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(snapshot, forKey: .snapshot)
+        try container.encode(data, forKey: .data)
+    }
 }
 
 struct FailureEnvelope: Encodable {
@@ -177,12 +207,13 @@ struct CommandExecution {
     static func success<Payload: Encodable>(
         data: Payload,
         plainText: String,
+        snapshot: String? = nil,
         exitCode: Int32 = 0
     ) -> CommandExecution {
         CommandExecution(
             exitCode: exitCode,
             plainText: plainText,
-            jsonText: encodeJSON(SuccessEnvelope(data: data))
+            jsonText: encodeJSON(SuccessEnvelope(snapshot: snapshot, data: data))
         )
     }
 

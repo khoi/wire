@@ -28,7 +28,7 @@ wire app launch <app> [--open <path-or-url> ...] [--wait] [--focus]
 wire app quit <app> [--force]
 wire app quit --pid <pid> [--force]
 
-wire see [--app <app>]
+wire inspect [--app <app>]
 wire click <@eN|query>
 wire type <text> [--into <@eN|query>]
 wire press <key|combo>
@@ -83,9 +83,15 @@ Quits running applications.
 - matching multiple running apps by name quits all of them
 - `--force` uses force termination instead of a normal quit request
 
-### `see [--app <app>]`
+### `inspect [--app <app>]`
 
 Inspects the active UI and returns a fresh snapshot with short element refs such as `@e1`, `@e2`.
+
+- with no arguments, inspects the frontmost app
+- `--app <app>` targets a running app by exact case-insensitive name
+- captures one visible window only
+- returns a saved screenshot path for that window
+- never activates or focuses the target app
 
 ### `click <@eN|query>`
 
@@ -138,7 +144,7 @@ Base error shape:
 
 ## Element Refs
 
-`@eN` is a short alias minted by `wire` during `see`.
+`@eN` is a short alias minted by `wire` during `inspect`.
 
 - Snapshot-scoped, not global
 - Stored in `wire` session state
@@ -164,7 +170,7 @@ Queries stay human and agent friendly:
 - `button:"Save"`
 - `text-field:"Search"`
 
-Agents should prefer `@eN` after `see`.
+Agents should prefer `@eN` after `inspect`.
 
 ## Example Flows
 
@@ -190,28 +196,37 @@ The behavior is the same:
 Inspect and act:
 
 ```bash
-wire see
+wire inspect
 wire click @e1
 wire type "weather london"
 wire press enter
 ```
 
-Example `see` result:
+Example `inspect` result:
 
 ```json
 {
   "snapshot": "s7",
   "data": {
     "app": {
-      "id": "@a1",
       "name": "Google Chrome",
+      "bundleId": "com.google.Chrome",
+      "pid": 83304,
       "focused": true
     },
+    "imagePath": "/tmp/wire/2f7.../snapshots/s7/image.png",
     "elements": [
       {
         "id": "@e1",
         "role": "text-field",
-        "name": "Search"
+        "name": "Search",
+        "enabled": true,
+        "frame": {
+          "x": 20,
+          "y": 52,
+          "width": 320,
+          "height": 28
+        }
       },
       {
         "id": "@e2",

@@ -7,12 +7,16 @@ class WireCommandTestCase: XCTestCase {
         state: PermissionState,
         output: OutputCapture,
         apps: AppClient? = nil,
-        currentDirectoryPath: String = "/tmp/wire-tests"
+        inspect: InspectClient? = nil,
+        currentDirectoryPath: String = "/tmp/wire-tests",
+        stateDirectoryPath: String = "/tmp/wire-state-tests"
     ) -> WireEnvironment {
         WireEnvironment(
             permissions: state.makeClient(),
             apps: apps ?? AppState().makeClient(),
+            inspect: inspect ?? InspectState().makeClient(),
             currentDirectoryPath: currentDirectoryPath,
+            stateDirectoryPath: stateDirectoryPath,
             stdout: output.writeStdout,
             stderr: output.writeStderr
         )
@@ -222,6 +226,62 @@ final class AppState {
     }
 }
 
+final class InspectState {
+    var captureCalls: [InspectTarget] = []
+    var nextCapture = CapturedInspection(
+        app: .init(
+            name: "Google Chrome",
+            bundleId: "com.google.Chrome",
+            pid: 42,
+            focused: false
+        ),
+        window: .init(
+            id: 101,
+            title: "Search",
+            frame: CGRect(x: 100, y: 100, width: 800, height: 600)
+        ),
+        imageData: Data("image".utf8),
+        elements: [
+            .init(
+                role: "text-field",
+                name: "Search",
+                value: nil,
+                enabled: true,
+                screenFrame: CGRect(x: 120, y: 620, width: 320, height: 28),
+                resolver: .init(
+                    appName: "Google Chrome",
+                    appBundleId: "com.google.Chrome",
+                    appPID: 42,
+                    windowID: 101,
+                    windowTitle: "Search",
+                    windowFrame: CGRect(x: 100, y: 100, width: 800, height: 600),
+                    path: [0],
+                    rawRole: "AXTextField",
+                    rawTitle: "Search",
+                    rawDescription: nil,
+                    rawValue: nil,
+                    screenFrame: CGRect(x: 120, y: 620, width: 320, height: 28),
+                    actions: ["AXPress"],
+                    valueSettable: true
+                )
+            )
+        ]
+    )
+    var captureError: Error?
+
+    func makeClient() -> InspectClient {
+        InspectClient(
+            capture: { target in
+                self.captureCalls.append(target)
+                if let captureError = self.captureError {
+                    throw captureError
+                }
+                return self.nextCapture
+            }
+        )
+    }
+}
+
 struct StatusEnvelope: Decodable, Equatable {
     let data: StatusData
 }
@@ -306,4 +366,31 @@ struct AppQuitItem: Decodable, Equatable {
     let pid: Int32
     let terminated: Bool
     let message: String?
+}
+
+struct InspectEnvelope: Decodable, Equatable {
+    let snapshot: String
+    let data: InspectPayload
+}
+
+struct InspectPayload: Decodable, Equatable {
+    let app: InspectApp
+    let imagePath: String
+    let elements: [InspectItem]
+}
+
+struct InspectApp: Decodable, Equatable {
+    let name: String
+    let bundleId: String?
+    let pid: Int32
+    let focused: Bool
+}
+
+struct InspectItem: Decodable, Equatable {
+    let id: String
+    let role: String
+    let name: String
+    let value: String?
+    let enabled: Bool?
+    let frame: CGRect?
 }

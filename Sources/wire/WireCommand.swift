@@ -5,6 +5,7 @@ struct Wire: ParsableCommand {
         commandName: "wire",
         subcommands: [
             AppCommand.self,
+            InspectCommand.self,
             PermissionsCommand.self,
         ]
     )
