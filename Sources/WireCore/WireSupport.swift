@@ -215,14 +215,8 @@ extension WireError {
             environment.stdout(terminated(message))
             return
         }
-        let payload = FailureEnvelope(
-            error: FailureBody(code: code, message: message)
-        )
-        if let text = try? encodeJSON(payload) {
-            environment.stdout(terminated(text))
-            return
-        }
-        environment.stdout(terminated("{\"error\":{\"code\":\"\(code)\",\"message\":\"\(message)\"},\"ok\":false}"))
+        let payload = FailureEnvelope(error: FailureBody(code: code, message: message))
+        environment.stdout(terminated(encodeFailureJSON(payload)))
     }
 }
 
@@ -375,4 +369,24 @@ private func encodeJSON<Value: Encodable>(_ value: Value) throws -> String {
     encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
     let data = try encoder.encode(value)
     return String(decoding: data, as: UTF8.self)
+}
+
+private func encodeFailureJSON(_ value: FailureEnvelope) -> String {
+    if let text = try? encodeJSON(value) {
+        return text
+    }
+    let object: [String: Any] = [
+        "ok": false,
+        "error": [
+            "code": value.error.code,
+            "message": value.error.message,
+        ],
+    ]
+    if
+        let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]),
+        let text = String(data: data, encoding: .utf8)
+    {
+        return text
+    }
+    fatalError("failed to encode failure payload")
 }

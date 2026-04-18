@@ -142,6 +142,24 @@ final class WireCoreTests: XCTestCase {
         XCTAssertTrue(response.data.ready)
     }
 
+    func testParseErrorsReturnStructuredJSON() throws {
+        let state = PermissionState(accessibility: true, screenRecording: true)
+        let output = OutputCapture()
+
+        let exitCode = WireRunner.run(
+            arguments: ["permissions", "status", "--nope"],
+            environment: environment(state: state, output: output)
+        )
+
+        XCTAssertEqual(exitCode, 64)
+        XCTAssertEqual(output.stderr, "")
+
+        let response = try decode(ErrorEnvelope.self, from: output.stdout)
+        XCTAssertFalse(response.ok)
+        XCTAssertEqual(response.error.code, "parse_error")
+        XCTAssertTrue(response.error.message.contains("--nope"))
+    }
+
     private func environment(state: PermissionState, output: OutputCapture) -> WireEnvironment {
         WireEnvironment(
             permissions: state.makeClient(),
@@ -237,4 +255,14 @@ private struct GrantPermission: Decodable, Equatable {
     let before: Bool
     let after: Bool
     let requested: Bool
+}
+
+private struct ErrorEnvelope: Decodable, Equatable {
+    let ok: Bool
+    let error: ErrorBody
+}
+
+private struct ErrorBody: Decodable, Equatable {
+    let code: String
+    let message: String
 }
