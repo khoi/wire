@@ -305,8 +305,8 @@ struct PermissionsService {
             permissions: PermissionKind.allCases.map { kind in
                 PermissionGrantEntry(
                     kind: kind,
-                    before: beforeValue(for: kind, in: before),
-                    after: beforeValue(for: kind, in: after),
+                    before: value(for: kind, in: before),
+                    after: value(for: kind, in: after),
                     requested: requested.contains(kind)
                 )
             }
@@ -345,7 +345,7 @@ struct PermissionsService {
         }
     }
 
-    private func beforeValue(for kind: PermissionKind, in entries: [PermissionStatusEntry]) -> Bool {
+    private func value(for kind: PermissionKind, in entries: [PermissionStatusEntry]) -> Bool {
         entries.first(where: { $0.kind == kind })?.granted ?? false
     }
 }
@@ -353,122 +353,4 @@ struct PermissionsService {
 protocol WireExecutableCommand {
     var outputOptions: OutputOptions { get }
     func execute(context: CommandContext) throws -> CommandExecution
-}
-
-struct PermissionsStatusCommand: ParsableCommand, WireExecutableCommand {
-    static let configuration = CommandConfiguration(commandName: "status")
-
-    @OptionGroup var outputOptions: OutputOptions
-
-    func execute(context: CommandContext) throws -> CommandExecution {
-        let service = PermissionsService(client: context.permissions, logger: context.logger)
-        do {
-            let data = try service.status()
-            return try CommandExecution.success(
-                command: "permissions status",
-                data: data,
-                plainText: data.plainText()
-            )
-        } catch let error as PermissionsServiceError {
-            throw WireFailure(
-                command: "permissions status",
-                code: error.code,
-                message: error.message,
-                exitCode: 1
-            )
-        }
-    }
-}
-
-struct PermissionsGrantCommand: ParsableCommand, WireExecutableCommand {
-    static let configuration = CommandConfiguration(commandName: "grant")
-
-    @OptionGroup var outputOptions: OutputOptions
-
-    func execute(context: CommandContext) throws -> CommandExecution {
-        let service = PermissionsService(client: context.permissions, logger: context.logger)
-        do {
-            let data = try service.grant()
-            return try CommandExecution.success(
-                command: "permissions grant",
-                data: data,
-                plainText: data.plainText(),
-                exitCode: data.ready ? 0 : 1
-            )
-        } catch let error as PermissionsServiceError {
-            throw WireFailure(
-                command: "permissions grant",
-                code: error.code,
-                message: error.message,
-                exitCode: 1
-            )
-        }
-    }
-}
-
-struct PermissionsCommand: ParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "permissions",
-        subcommands: [
-            PermissionsStatusCommand.self,
-            PermissionsGrantCommand.self,
-        ]
-    )
-
-    @OptionGroup var outputOptions: OutputOptions
-}
-
-struct Wire: ParsableCommand {
-    static let configuration = CommandConfiguration(
-        commandName: "wire",
-        subcommands: [
-            PermissionsCommand.self,
-        ]
-    )
-
-    @OptionGroup var outputOptions: OutputOptions
-}
-
-public enum WireRunner {
-    @discardableResult
-    public static func run(
-        arguments: [String],
-        environment: WireEnvironment = .live()
-    ) -> Int32 {
-        let detectedOptions = OutputOptions.detect(arguments: arguments)
-
-        do {
-            let parsed = try Wire.parseAsRoot(arguments)
-
-            if let executable = parsed as? any WireExecutableCommand {
-                let context = CommandContext(options: executable.outputOptions, environment: environment)
-                let execution = try executable.execute(context: context)
-                execution.write(options: executable.outputOptions, environment: environment)
-                return execution.exitCode
-            }
-
-            if parsed is PermissionsCommand {
-                environment.stdout(PermissionsCommand.helpMessage())
-                return 0
-            }
-
-            environment.stdout(Wire.helpMessage())
-            return 0
-        } catch let error as WireFailure {
-            error.write(options: detectedOptions, environment: environment)
-            return error.exitCode
-        } catch let error as CleanExit {
-            environment.stdout(Wire.message(for: error))
-            return 0
-        } catch {
-            let failure = WireFailure(
-                command: "wire",
-                code: "parse_error",
-                message: Wire.message(for: error),
-                exitCode: 64
-            )
-            failure.write(options: detectedOptions, environment: environment)
-            return failure.exitCode
-        }
-    }
 }
