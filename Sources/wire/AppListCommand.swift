@@ -3,6 +3,7 @@ import ArgumentParser
 struct AppListCommand: ParsableCommand, WireExecutableCommand {
     static let configuration = CommandConfiguration(
         commandName: "list",
+        abstract: "List running applications",
         aliases: ["ls"]
     )
 

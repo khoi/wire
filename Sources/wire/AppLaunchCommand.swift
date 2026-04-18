@@ -1,7 +1,10 @@
 import ArgumentParser
 
 struct AppLaunchCommand: ParsableCommand, WireExecutableCommand {
-    static let configuration = CommandConfiguration(commandName: "launch")
+    static let configuration = CommandConfiguration(
+        commandName: "launch",
+        abstract: "Launch an application"
+    )
 
     @Argument(help: "Application name or path")
     var app: String?
