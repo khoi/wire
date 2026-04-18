@@ -15,17 +15,13 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "wire",
-            dependencies: ["WireCore"]
-        ),
-        .target(
-            name: "WireCore",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
         .testTarget(
-            name: "WireCoreTests",
-            dependencies: ["WireCore"]
+            name: "wireTests",
+            dependencies: ["wire"]
         ),
     ]
 )

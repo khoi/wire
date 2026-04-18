@@ -1,7 +1,7 @@
 import XCTest
-@testable import WireCore
+@testable import wire
 
-final class WireCoreTests: XCTestCase {
+final class WireTests: XCTestCase {
     func testStatusReturnsJSON() throws {
         let state = PermissionState(accessibility: true, screenRecording: false)
         let output = OutputCapture()
