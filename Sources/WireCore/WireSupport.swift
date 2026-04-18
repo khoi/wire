@@ -167,13 +167,11 @@ struct PermissionsGrantData: Codable, Equatable {
 
 struct SuccessEnvelope<Payload: Encodable>: Encodable {
     let ok = true
-    let command: String
     let data: Payload
 }
 
 struct FailureEnvelope: Encodable {
     let ok = false
-    let command: String
     let error: FailureBody
 }
 
@@ -188,7 +186,6 @@ struct CommandExecution {
     let jsonText: String
 
     static func success<Payload: Encodable>(
-        command: String,
         data: Payload,
         plainText: String,
         exitCode: Int32 = 0
@@ -196,7 +193,7 @@ struct CommandExecution {
         return CommandExecution(
             exitCode: exitCode,
             plainText: plainText,
-            jsonText: try encodeJSON(SuccessEnvelope(command: command, data: data))
+            jsonText: try encodeJSON(SuccessEnvelope(data: data))
         )
     }
 
@@ -207,7 +204,6 @@ struct CommandExecution {
 }
 
 struct WireFailure: Error {
-    let command: String
     let code: String
     let message: String
     let exitCode: Int32
@@ -218,14 +214,13 @@ struct WireFailure: Error {
             return
         }
         let payload = FailureEnvelope(
-            command: command,
             error: FailureBody(code: code, message: message)
         )
         if let text = try? encodeJSON(payload) {
             environment.stdout(terminated(text))
             return
         }
-        environment.stdout(terminated("{\"command\":\"\(command)\",\"error\":{\"code\":\"\(code)\",\"message\":\"\(message)\"},\"ok\":false}"))
+        environment.stdout(terminated("{\"error\":{\"code\":\"\(code)\",\"message\":\"\(message)\"},\"ok\":false}"))
     }
 }
 

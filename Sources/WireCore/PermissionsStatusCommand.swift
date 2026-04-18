@@ -10,13 +10,11 @@ struct PermissionsStatusCommand: ParsableCommand, WireExecutableCommand {
         do {
             let data = try service.status()
             return try CommandExecution.success(
-                command: "permissions status",
                 data: data,
                 plainText: data.plainText()
             )
         } catch let error as PermissionsServiceError {
             throw WireFailure(
-                command: "permissions status",
                 code: error.code,
                 message: error.message,
                 exitCode: 1

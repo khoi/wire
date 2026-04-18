@@ -16,7 +16,6 @@ final class WireCoreTests: XCTestCase {
 
         let response = try decode(StatusEnvelope.self, from: output.stdout)
         XCTAssertTrue(response.ok)
-        XCTAssertEqual(response.command, "permissions status")
         XCTAssertFalse(response.data.ready)
         XCTAssertEqual(
             response.data.permissions,
@@ -66,7 +65,6 @@ final class WireCoreTests: XCTestCase {
 
         let response = try decode(GrantEnvelope.self, from: output.stdout)
         XCTAssertTrue(response.ok)
-        XCTAssertEqual(response.command, "permissions grant")
         XCTAssertTrue(response.data.ready)
         XCTAssertEqual(
             response.data.permissions,
@@ -211,7 +209,6 @@ private final class OutputCapture {
 
 private struct StatusEnvelope: Decodable, Equatable {
     let ok: Bool
-    let command: String
     let data: StatusData
 }
 
@@ -227,7 +224,6 @@ private struct StatusPermission: Decodable, Equatable {
 
 private struct GrantEnvelope: Decodable, Equatable {
     let ok: Bool
-    let command: String
     let data: GrantData
 }
 

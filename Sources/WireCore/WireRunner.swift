@@ -37,7 +37,6 @@ public enum WireRunner {
             return 0
         } catch {
             let failure = WireFailure(
-                command: "wire",
                 code: "parse_error",
                 message: Wire.message(for: error),
                 exitCode: 64
