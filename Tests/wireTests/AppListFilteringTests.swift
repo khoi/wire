@@ -7,16 +7,28 @@ final class AppListFilteringTests: XCTestCase {
         XCTAssertTrue(
             LiveAppSystem.shouldListApplication(
                 isTerminated: false,
-                activationPolicy: .regular
+                activationPolicy: .regular,
+                includeAccessory: false
             )
         )
     }
 
-    func testShouldListAccessoryApps() {
+    func testShouldNotListAccessoryAppsByDefault() {
+        XCTAssertFalse(
+            LiveAppSystem.shouldListApplication(
+                isTerminated: false,
+                activationPolicy: .accessory,
+                includeAccessory: false
+            )
+        )
+    }
+
+    func testShouldListAccessoryAppsWhenIncluded() {
         XCTAssertTrue(
             LiveAppSystem.shouldListApplication(
                 isTerminated: false,
-                activationPolicy: .accessory
+                activationPolicy: .accessory,
+                includeAccessory: true
             )
         )
     }
@@ -25,7 +37,8 @@ final class AppListFilteringTests: XCTestCase {
         XCTAssertFalse(
             LiveAppSystem.shouldListApplication(
                 isTerminated: false,
-                activationPolicy: .prohibited
+                activationPolicy: .prohibited,
+                includeAccessory: true
             )
         )
     }
@@ -34,7 +47,8 @@ final class AppListFilteringTests: XCTestCase {
         XCTAssertFalse(
             LiveAppSystem.shouldListApplication(
                 isTerminated: true,
-                activationPolicy: .regular
+                activationPolicy: .regular,
+                includeAccessory: true
             )
         )
     }

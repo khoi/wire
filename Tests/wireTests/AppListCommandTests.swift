@@ -118,6 +118,21 @@ final class AppListCommandTests: WireCommandTestCase {
 
         XCTAssertEqual(exitCode, 0)
         XCTAssertTrue(output.stdout.contains("USAGE: wire app list"))
+        XCTAssertTrue(output.stdout.contains("--include-accessory"))
         XCTAssertEqual(output.stderr, "")
+    }
+
+    func testListIncludeAccessoryFlagPassesThrough() async {
+        let state = PermissionState(accessibility: true, screenRecording: true)
+        let apps = AppState()
+        let output = OutputCapture()
+
+        let exitCode = await WireRunner.run(
+            arguments: ["app", "list", "--include-accessory"],
+            environment: environment(state: state, output: output, apps: apps.makeClient())
+        )
+
+        XCTAssertEqual(exitCode, 0)
+        XCTAssertEqual(apps.listIncludeAccessoryCalls, [true])
     }
 }

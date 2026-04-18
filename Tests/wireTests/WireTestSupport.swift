@@ -121,6 +121,7 @@ final class AppState {
     var launchedApplications: [StubRunningApplication] = []
     var launchError: Error?
     var listedApplications: [AppListEntry] = []
+    var listIncludeAccessoryCalls: [Bool] = []
 
     func makeClient() -> AppClient {
         AppClient(
@@ -154,8 +155,9 @@ final class AppState {
                 }
                 return StubRunningApplication()
             },
-            listApplications: {
-                self.listedApplications
+            listApplications: { includeAccessory in
+                self.listIncludeAccessoryCalls.append(includeAccessory)
+                return self.listedApplications
             }
         )
     }

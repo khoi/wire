@@ -20,12 +20,12 @@ enum AppLaunchTarget: Equatable {
 struct AppClient {
     var resolveApplicationURL: (_ target: AppLaunchTarget, _ currentDirectoryPath: String) async throws -> URL
     var launchApplication: (_ appURL: URL, _ openTargets: [URL], _ activates: Bool) async throws -> any RunningApplicationHandle
-    var listApplications: () async throws -> [AppListEntry]
+    var listApplications: (_ includeAccessory: Bool) async throws -> [AppListEntry]
 
     init(
         resolveApplicationURL: @escaping (_ target: AppLaunchTarget, _ currentDirectoryPath: String) async throws -> URL,
         launchApplication: @escaping (_ appURL: URL, _ openTargets: [URL], _ activates: Bool) async throws -> any RunningApplicationHandle,
-        listApplications: @escaping () async throws -> [AppListEntry]
+        listApplications: @escaping (_ includeAccessory: Bool) async throws -> [AppListEntry]
     ) {
         self.resolveApplicationURL = resolveApplicationURL
         self.launchApplication = launchApplication
@@ -47,8 +47,8 @@ struct AppClient {
                     activates: activates
                 )
             },
-            listApplications: {
-                try LiveAppSystem.listApplications()
+            listApplications: { includeAccessory in
+                try LiveAppSystem.listApplications(includeAccessory: includeAccessory)
             }
         )
     }
@@ -228,8 +228,8 @@ struct AppLaunchService {
 struct AppListService {
     let client: AppClient
 
-    func list() async throws -> AppListData {
-        let apps = try await client.listApplications()
+    func list(includeAccessory: Bool) async throws -> AppListData {
+        let apps = try await client.listApplications(includeAccessory)
         return AppListData(
             apps: apps.sorted {
                 let lhs = ($0.name.lowercased(), $0.bundleId ?? "", $0.path ?? "")
@@ -241,12 +241,13 @@ struct AppListService {
 }
 
 enum LiveAppSystem {
-    static func listApplications() throws -> [AppListEntry] {
+    static func listApplications(includeAccessory: Bool) throws -> [AppListEntry] {
         mainThread {
             NSWorkspace.shared.runningApplications.compactMap { application in
                 guard shouldListApplication(
                     isTerminated: application.isTerminated,
-                    activationPolicy: application.activationPolicy
+                    activationPolicy: application.activationPolicy,
+                    includeAccessory: includeAccessory
                 ) else {
                     return nil
                 }
@@ -267,12 +268,22 @@ enum LiveAppSystem {
 
     static func shouldListApplication(
         isTerminated: Bool,
-        activationPolicy: NSApplication.ActivationPolicy
+        activationPolicy: NSApplication.ActivationPolicy,
+        includeAccessory: Bool
     ) -> Bool {
         guard !isTerminated else {
             return false
         }
-        return activationPolicy != .prohibited
+        switch activationPolicy {
+        case .regular:
+            return true
+        case .accessory:
+            return includeAccessory
+        case .prohibited:
+            return false
+        @unknown default:
+            return false
+        }
     }
 
     static func resolveApplicationURL(

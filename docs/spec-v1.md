@@ -22,8 +22,8 @@
 wire [--plain] [--verbose|-v] permissions grant
 wire [--plain] [--verbose|-v] permissions status
 
-wire app list
-wire app ls
+wire app list [--include-accessory]
+wire app ls [--include-accessory]
 wire app launch <app> [--open <path-or-url> ...] [--wait] [--focus]
 wire app quit <app>
 
@@ -63,6 +63,9 @@ v1 covers exactly:
 ### `app list`
 
 Lists running applications.
+
+- default lists regular foreground applications
+- `--include-accessory` also includes accessory apps such as helpers and menu bar apps
 
 ### `app launch <app>`
 
