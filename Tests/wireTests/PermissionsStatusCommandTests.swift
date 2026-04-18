@@ -1,0 +1,105 @@
+import XCTest
+@testable import wire
+
+final class PermissionsStatusCommandTests: WireCommandTestCase {
+    func testStatusReturnsJSON() throws {
+        let state = PermissionState(accessibility: true, screenRecording: false)
+        let output = OutputCapture()
+
+        let exitCode = WireRunner.run(
+            arguments: ["permissions", "status"],
+            environment: environment(state: state, output: output)
+        )
+
+        XCTAssertEqual(exitCode, 0)
+        XCTAssertEqual(output.stderr, "")
+
+        let response = try decode(StatusEnvelope.self, from: output.stdout)
+        XCTAssertTrue(response.ok)
+        XCTAssertFalse(response.data.ready)
+        XCTAssertEqual(
+            response.data.permissions,
+            [
+                .init(kind: "accessibility", granted: true),
+                .init(kind: "screen-recording", granted: false),
+            ]
+        )
+    }
+
+    func testStatusSupportsPlainFlagAtEveryCommandLevel() {
+        let expected = "ready: no\naccessibility: granted\nscreen-recording: missing\n"
+        let cases = [
+            ["--plain", "permissions", "status"],
+            ["permissions", "--plain", "status"],
+            ["permissions", "status", "--plain"],
+        ]
+
+        for arguments in cases {
+            let state = PermissionState(accessibility: true, screenRecording: false)
+            let output = OutputCapture()
+
+            let exitCode = WireRunner.run(
+                arguments: arguments,
+                environment: environment(state: state, output: output)
+            )
+
+            XCTAssertEqual(exitCode, 0)
+            XCTAssertEqual(output.stdout, expected)
+            XCTAssertEqual(output.stderr, "")
+        }
+    }
+
+    func testVerboseLogsGoToStderrOnly() throws {
+        let state = PermissionState(accessibility: true, screenRecording: true)
+        let output = OutputCapture()
+
+        let exitCode = WireRunner.run(
+            arguments: ["-v", "permissions", "status"],
+            environment: environment(state: state, output: output)
+        )
+
+        XCTAssertEqual(exitCode, 0)
+        XCTAssertTrue(output.stderr.contains("[verbose] checking accessibility permission"))
+        XCTAssertTrue(output.stderr.contains("[verbose] checking screen-recording permission"))
+        XCTAssertFalse(output.stdout.contains("[verbose]"))
+
+        let response = try decode(StatusEnvelope.self, from: output.stdout)
+        XCTAssertTrue(response.data.ready)
+    }
+
+    func testParseErrorsReturnStructuredJSON() throws {
+        let state = PermissionState(accessibility: true, screenRecording: true)
+        let output = OutputCapture()
+
+        let exitCode = WireRunner.run(
+            arguments: ["permissions", "status", "--nope"],
+            environment: environment(state: state, output: output)
+        )
+
+        XCTAssertEqual(exitCode, 64)
+        XCTAssertEqual(output.stderr, "")
+
+        let response = try decode(ErrorEnvelope.self, from: output.stdout)
+        XCTAssertFalse(response.ok)
+        XCTAssertEqual(response.error.code, "parse_error")
+        XCTAssertTrue(response.error.message.contains("--nope"))
+    }
+
+    func testParseErrorsIgnorePlainFlagAndReturnJSON() throws {
+        let state = PermissionState(accessibility: true, screenRecording: true)
+        let output = OutputCapture()
+
+        let exitCode = WireRunner.run(
+            arguments: ["--plain", "permissions", "status", "--nope"],
+            environment: environment(state: state, output: output)
+        )
+
+        XCTAssertEqual(exitCode, 64)
+        XCTAssertEqual(output.stderr, "")
+
+        let response = try decode(ErrorEnvelope.self, from: output.stdout)
+        XCTAssertFalse(response.ok)
+        XCTAssertEqual(response.error.code, "parse_error")
+        XCTAssertTrue(response.error.message.contains("--nope"))
+    }
+}
