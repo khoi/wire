@@ -28,8 +28,6 @@ wire app launch <app> [--open <path-or-url> ...] [--wait] [--focus]
 wire app quit <app> [--force]
 wire app quit --pid <pid> [--force]
 
-wire open <target> [--app <app>]
-
 wire see [--app <app>]
 wire click <@eN|query>
 wire type <text> [--into <@eN|query>]
@@ -84,10 +82,6 @@ Quits running applications.
 - app names match exactly, case-insensitive
 - matching multiple running apps by name quits all of them
 - `--force` uses force termination instead of a normal quit request
-
-### `open <target> [--app <app>]`
-
-Opens a URL, file, or app-supported target. If `--app` is set, `wire` uses that app, focusing it if running and launching it if not.
 
 ### `see [--app <app>]`
 
@@ -177,22 +171,21 @@ Agents should prefer `@eN` after `see`.
 Open Google Chrome when already running:
 
 ```bash
-wire app launch chrome --focus
-wire open https://google.com --app chrome
+wire app launch chrome --open https://google.com --focus
 ```
 
 Open Google Chrome when not running:
 
 ```bash
-wire app launch chrome --focus
-wire open https://google.com --app chrome
+wire app launch chrome --open https://google.com --focus
 ```
 
 The behavior is the same:
 
-- if Chrome is running, `app launch` starts or reuses the app process
+- if Chrome is running, `app launch` reuses the app process
+- if Chrome is not running, `app launch` starts it
 - `--focus` brings Chrome to the foreground
-- open the target in Chrome
+- `--open` passes the target to Chrome
 
 Inspect and act:
 
