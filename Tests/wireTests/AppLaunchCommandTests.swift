@@ -2,6 +2,22 @@ import XCTest
 @testable import wire
 
 final class AppLaunchCommandTests: WireCommandTestCase {
+    func testLaunchHelpFlagExitsCleanly() async {
+        let state = PermissionState(accessibility: true, screenRecording: true)
+        let output = OutputCapture()
+
+        let exitCode = await WireRunner.run(
+            arguments: ["app", "launch", "--help"],
+            environment: environment(state: state, output: output)
+        )
+
+        XCTAssertEqual(exitCode, 0)
+        XCTAssertTrue(output.stdout.contains("USAGE: wire app launch"))
+        XCTAssertTrue(output.stdout.contains("--bundle-id"))
+        XCTAssertTrue(output.stdout.contains("--open"))
+        XCTAssertEqual(output.stderr, "")
+    }
+
     func testLaunchByAppReturnsJSONWithoutFocusByDefault() async throws {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let apps = AppState()

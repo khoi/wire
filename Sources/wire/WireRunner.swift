@@ -29,12 +29,17 @@ enum WireRunner {
             try command.run()
             return 0
         } catch let error as CleanExit {
-            environment.stdout(Wire.message(for: error))
+            environment.stdout(Wire.fullMessage(for: error))
             return 0
         } catch let error as any WireError {
             error.writeJSON(environment: environment)
             return error.exitCode
         } catch {
+            let exitCode = Wire.exitCode(for: error)
+            if exitCode == .success {
+                environment.stdout(Wire.fullMessage(for: error))
+                return 0
+            }
             let failure = WireRuntimeError.parse(Wire.message(for: error))
             failure.writeJSON(environment: environment)
             return failure.exitCode
