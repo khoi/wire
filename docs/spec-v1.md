@@ -25,7 +25,8 @@ wire [--plain] [--verbose|-v] permissions status
 wire app list [--include-accessory]
 wire app ls [--include-accessory]
 wire app launch <app> [--open <path-or-url> ...] [--wait] [--focus]
-wire app quit <app>
+wire app quit <app> [--force]
+wire app quit --pid <pid> [--force]
 
 wire open <target> [--app <app>]
 
@@ -77,7 +78,12 @@ Launches the app by name or path. `--bundle-id` can target the app by bundle ide
 
 ### `app quit <app>`
 
-Quits the app.
+Quits running applications.
+
+- `--pid <pid>` targets a running app by process identifier instead of name
+- app names match exactly, case-insensitive
+- matching multiple running apps by name quits all of them
+- `--force` uses force termination instead of a normal quit request
 
 ### `open <target> [--app <app>]`
 

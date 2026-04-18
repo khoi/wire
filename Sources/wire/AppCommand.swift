@@ -6,6 +6,7 @@ struct AppCommand: ParsableCommand {
         subcommands: [
             AppListCommand.self,
             AppLaunchCommand.self,
+            AppQuitCommand.self,
         ]
     )
 

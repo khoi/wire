@@ -5,19 +5,23 @@ final class AppListCommandTests: WireCommandTestCase {
     func testListReturnsSortedJSON() async throws {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let apps = AppState()
-        apps.listedApplications = [
-            .init(
-                name: "Safari",
-                bundleId: "com.apple.Safari",
-                path: "/Applications/Safari.app",
-                pid: 41
+        apps.runningApplications = [
+            AppRuntimeApplication(
+                handle: StubRunningApplication(
+                    localizedName: "Safari",
+                    bundleIdentifier: "com.apple.Safari",
+                    processIdentifier: 41,
+                    bundleURL: URL(fileURLWithPath: "/Applications/Safari.app")
+                )
             ),
-            .init(
-                name: "Google Chrome",
-                bundleId: "com.google.Chrome",
-                path: "/Applications/Google Chrome.app",
-                pid: 52
-            )
+            AppRuntimeApplication(
+                handle: StubRunningApplication(
+                    localizedName: "Google Chrome",
+                    bundleIdentifier: "com.google.Chrome",
+                    processIdentifier: 52,
+                    bundleURL: URL(fileURLWithPath: "/Applications/Google Chrome.app")
+                )
+            ),
         ]
         let output = OutputCapture()
 
@@ -54,12 +58,14 @@ final class AppListCommandTests: WireCommandTestCase {
     func testListAliasLsReturnsSameData() async throws {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let apps = AppState()
-        apps.listedApplications = [
-            .init(
-                name: "Finder",
-                bundleId: "com.apple.finder",
-                path: "/System/Applications/Finder.app",
-                pid: 1
+        apps.runningApplications = [
+            AppRuntimeApplication(
+                handle: StubRunningApplication(
+                    localizedName: "Finder",
+                    bundleIdentifier: "com.apple.finder",
+                    processIdentifier: 1,
+                    bundleURL: URL(fileURLWithPath: "/System/Applications/Finder.app")
+                )
             ),
         ]
         let output = OutputCapture()
@@ -86,12 +92,14 @@ final class AppListCommandTests: WireCommandTestCase {
         for arguments in cases {
             let state = PermissionState(accessibility: true, screenRecording: true)
             let apps = AppState()
-            apps.listedApplications = [
-                .init(
-                    name: "Google Chrome",
-                    bundleId: "com.google.Chrome",
-                    path: "/Applications/Google Chrome.app",
-                    pid: 52
+            apps.runningApplications = [
+                AppRuntimeApplication(
+                    handle: StubRunningApplication(
+                        localizedName: "Google Chrome",
+                        bundleIdentifier: "com.google.Chrome",
+                        processIdentifier: 52,
+                        bundleURL: URL(fileURLWithPath: "/Applications/Google Chrome.app")
+                    )
                 ),
             ]
             let output = OutputCapture()
@@ -133,6 +141,6 @@ final class AppListCommandTests: WireCommandTestCase {
         )
 
         XCTAssertEqual(exitCode, 0)
-        XCTAssertEqual(apps.listIncludeAccessoryCalls, [true])
+        XCTAssertEqual(apps.runningIncludeAccessoryCalls, [true])
     }
 }

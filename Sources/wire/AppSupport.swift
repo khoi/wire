@@ -4,10 +4,16 @@ import Foundation
 protocol RunningApplicationHandle: AnyObject {
     var localizedName: String? { get }
     var bundleIdentifier: String? { get }
+    var bundleURL: URL? { get }
     var processIdentifier: Int32 { get }
     var isFinishedLaunching: Bool { get }
+    var isTerminated: Bool { get }
     @discardableResult
     func activate(options: NSApplication.ActivationOptions) -> Bool
+    @discardableResult
+    func terminate() -> Bool
+    @discardableResult
+    func forceTerminate() -> Bool
 }
 
 extension NSRunningApplication: RunningApplicationHandle {}
@@ -15,6 +21,40 @@ extension NSRunningApplication: RunningApplicationHandle {}
 enum AppLaunchTarget: Equatable {
     case app(String)
     case bundleID(String)
+}
+
+enum AppQuitTarget: Equatable {
+    case app(String)
+    case pid(Int32)
+}
+
+struct AppRuntimeApplication {
+    let name: String
+    let bundleId: String?
+    let path: String?
+    let pid: Int32
+    let handle: any RunningApplicationHandle
+
+    init(handle: any RunningApplicationHandle) {
+        name =
+            handle.localizedName
+            ?? handle.bundleURL?.deletingPathExtension().lastPathComponent
+            ?? handle.bundleIdentifier
+            ?? "Unknown"
+        bundleId = handle.bundleIdentifier
+        path = handle.bundleURL?.path
+        pid = handle.processIdentifier
+        self.handle = handle
+    }
+
+    var listEntry: AppListEntry {
+        AppListEntry(
+            name: name,
+            bundleId: bundleId,
+            path: path,
+            pid: pid
+        )
+    }
 }
 
 struct AppClient {
@@ -27,20 +67,20 @@ struct AppClient {
         _ openTargets: [URL],
         _ activates: Bool
     ) async throws -> any RunningApplicationHandle
-    typealias ListApplications = (_ includeAccessory: Bool) async throws -> [AppListEntry]
+    typealias RunningApplications = (_ includeAccessory: Bool) async throws -> [AppRuntimeApplication]
 
     var resolveApplicationURL: ResolveApplicationURL
     var launchApplication: LaunchApplication
-    var listApplications: ListApplications
+    var runningApplications: RunningApplications
 
     init(
         resolveApplicationURL: @escaping ResolveApplicationURL,
         launchApplication: @escaping LaunchApplication,
-        listApplications: @escaping ListApplications
+        runningApplications: @escaping RunningApplications
     ) {
         self.resolveApplicationURL = resolveApplicationURL
         self.launchApplication = launchApplication
-        self.listApplications = listApplications
+        self.runningApplications = runningApplications
     }
 
     static func live() -> AppClient {
@@ -58,8 +98,8 @@ struct AppClient {
                     activates: activates
                 )
             },
-            listApplications: { includeAccessory in
-                try LiveAppSystem.listApplications(includeAccessory: includeAccessory)
+            runningApplications: { includeAccessory in
+                try LiveAppSystem.runningApplications(includeAccessory: includeAccessory)
             }
         )
     }
@@ -113,6 +153,38 @@ struct AppLaunchData: Codable, Equatable {
     }
 }
 
+struct AppQuitData: Codable, Equatable {
+    struct App: Codable, Equatable {
+        let name: String
+        let bundleId: String?
+        let path: String?
+        let pid: Int32
+        let terminated: Bool
+        let message: String?
+    }
+
+    let apps: [App]
+    let forced: Bool
+
+    var exitCode: Int32 {
+        apps.allSatisfy(\.terminated) ? 0 : 1
+    }
+
+    func plainText() -> String {
+        apps.map { app in
+            [
+                app.name,
+                app.bundleId ?? "-",
+                String(app.pid),
+                app.path ?? "-",
+                app.terminated
+                    ? (forced ? "force-quit" : "quit")
+                    : "failed: \(app.message ?? "quit failed")",
+            ].joined(separator: "\t")
+        }.joined(separator: "\n")
+    }
+}
+
 enum AppLaunchError: WireError {
     case invalidTarget(String)
     case appNotFound(String)
@@ -142,6 +214,32 @@ enum AppLaunchError: WireError {
              .invalidOpenTarget(let message),
              .launchFailed(let message),
              .waitTimedOut(let message):
+            return message
+        }
+    }
+
+    var exitCode: Int32 {
+        1
+    }
+}
+
+enum AppQuitError: WireError {
+    case invalidTarget(String)
+    case appNotRunning(String)
+
+    var code: String {
+        switch self {
+        case .invalidTarget:
+            return "invalid_app_target"
+        case .appNotRunning:
+            return "app_not_running"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .invalidTarget(let message),
+             .appNotRunning(let message):
             return message
         }
     }
@@ -238,23 +336,136 @@ struct AppLaunchService {
     }
 }
 
+struct AppQuitService {
+    private struct RequestedApplication {
+        let application: AppRuntimeApplication
+        let requestAccepted: Bool
+    }
+
+    let client: AppClient
+    let logger: Logger
+    let timeout: TimeInterval
+    let pollInterval: Duration
+
+    init(
+        client: AppClient,
+        logger: Logger,
+        timeout: TimeInterval = 10,
+        pollInterval: Duration = .milliseconds(100)
+    ) {
+        self.client = client
+        self.logger = logger
+        self.timeout = timeout
+        self.pollInterval = pollInterval
+    }
+
+    func quit(
+        target: AppQuitTarget,
+        force: Bool
+    ) async throws -> AppQuitData {
+        logger.log("resolving running application target")
+        let runningApplications = try await client.runningApplications(true)
+        let matchedApplications = try matchingApplications(
+            for: target,
+            in: runningApplications
+        ).sorted(by: appSortsBefore)
+        logger.log("\(force ? "force quitting" : "quitting") \(matchedApplications.count) application(s)")
+        let requestedApplications = matchedApplications.map { application in
+            RequestedApplication(
+                application: application,
+                requestAccepted: mainThread {
+                    force ? application.handle.forceTerminate() : application.handle.terminate()
+                }
+            )
+        }
+        await waitUntilTerminated(requestedApplications)
+        return AppQuitData(
+            apps: requestedApplications.map { requested in
+                let terminated = mainThread { requested.application.handle.isTerminated }
+                return AppQuitData.App(
+                    name: requested.application.name,
+                    bundleId: requested.application.bundleId,
+                    path: requested.application.path,
+                    pid: requested.application.pid,
+                    terminated: terminated,
+                    message: quitMessage(
+                        terminated: terminated,
+                        requestAccepted: requested.requestAccepted,
+                        force: force
+                    )
+                )
+            },
+            forced: force
+        )
+    }
+
+    private func matchingApplications(
+        for target: AppQuitTarget,
+        in applications: [AppRuntimeApplication]
+    ) throws -> [AppRuntimeApplication] {
+        switch target {
+        case .app(let name):
+            let matches = applications.filter {
+                $0.name.compare(name, options: [.caseInsensitive]) == .orderedSame
+            }
+            guard !matches.isEmpty else {
+                throw AppQuitError.appNotRunning("application not running: \(name)")
+            }
+            return matches
+        case .pid(let pid):
+            guard let match = applications.first(where: { $0.pid == pid }) else {
+                throw AppQuitError.appNotRunning("application not running with pid \(pid)")
+            }
+            return [match]
+        }
+    }
+
+    private func waitUntilTerminated(_ applications: [RequestedApplication]) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while applications.contains(where: { application in
+            !mainThread { application.application.handle.isTerminated }
+        }) {
+            if Date() >= deadline {
+                return
+            }
+            try? await Task.sleep(for: pollInterval)
+        }
+    }
+
+    private func quitMessage(
+        terminated: Bool,
+        requestAccepted: Bool,
+        force: Bool
+    ) -> String? {
+        guard !terminated else {
+            return nil
+        }
+        if requestAccepted {
+            return force
+                ? "application did not terminate within \(Int(timeout)) seconds"
+                : "application did not quit within \(Int(timeout)) seconds"
+        }
+        return force
+            ? "failed to force terminate application"
+            : "failed to request application quit"
+    }
+}
+
 struct AppListService {
     let client: AppClient
 
     func list(includeAccessory: Bool) async throws -> AppListData {
-        let apps = try await client.listApplications(includeAccessory)
+        let apps = try await client.runningApplications(includeAccessory).map(\.listEntry)
         return AppListData(
             apps: apps.sorted {
-                let lhs = ($0.name.lowercased(), $0.bundleId ?? "", $0.path ?? "")
-                let rhs = ($1.name.lowercased(), $1.bundleId ?? "", $1.path ?? "")
-                return lhs < rhs
+                appSortsBefore($0, $1)
             }
         )
     }
 }
 
 enum LiveAppSystem {
-    static func listApplications(includeAccessory: Bool) throws -> [AppListEntry] {
+    static func runningApplications(includeAccessory: Bool) throws -> [AppRuntimeApplication] {
         mainThread {
             NSWorkspace.shared.runningApplications.compactMap { application in
                 guard shouldListApplication(
@@ -264,17 +475,7 @@ enum LiveAppSystem {
                 ) else {
                     return nil
                 }
-                let name =
-                    application.localizedName
-                    ?? application.bundleURL?.deletingPathExtension().lastPathComponent
-                    ?? application.bundleIdentifier
-                    ?? "Unknown"
-                return AppListEntry(
-                    name: name,
-                    bundleId: application.bundleIdentifier,
-                    path: application.bundleURL?.path,
-                    pid: application.processIdentifier,
-                )
+                return AppRuntimeApplication(handle: application)
             }
         }
     }
@@ -394,38 +595,6 @@ enum LiveAppSystem {
         return nil
     }
 
-    private static func discoverableApplicationURLs() -> [URL] {
-        var applicationURLs: [URL] = []
-        for directory in applicationSearchDirectories where FileManager.default.fileExists(atPath: directory.path) {
-            guard let enumerator = FileManager.default.enumerator(
-                at: directory,
-                includingPropertiesForKeys: [.isDirectoryKey, .isPackageKey],
-                options: [.skipsHiddenFiles]
-            ) else {
-                continue
-            }
-
-            while let fileURL = enumerator.nextObject() as? URL {
-                guard fileURL.pathExtension == "app" else {
-                    continue
-                }
-                applicationURLs.append(fileURL)
-                enumerator.skipDescendants()
-            }
-        }
-        return applicationURLs
-    }
-
-    private static func applicationKey(bundleId: String?, path: String?, name: String) -> String {
-        if let bundleId, !bundleId.isEmpty {
-            return "bundle:\(bundleId)"
-        }
-        if let path, !path.isEmpty {
-            return "path:\(path)"
-        }
-        return "name:\(name)"
-    }
-
     private static var applicationSearchDirectories: [URL] {
         [
             URL(fileURLWithPath: "/Applications"),
@@ -435,6 +604,50 @@ enum LiveAppSystem {
             URL(fileURLWithPath: NSString(string: "~/Applications").expandingTildeInPath),
         ]
     }
+}
+
+private func appSortsBefore(_ lhs: AppRuntimeApplication, _ rhs: AppRuntimeApplication) -> Bool {
+    let lhsName = lhs.name.lowercased()
+    let rhsName = rhs.name.lowercased()
+    if lhsName != rhsName {
+        return lhsName < rhsName
+    }
+
+    let lhsBundleId = lhs.bundleId ?? ""
+    let rhsBundleId = rhs.bundleId ?? ""
+    if lhsBundleId != rhsBundleId {
+        return lhsBundleId < rhsBundleId
+    }
+
+    let lhsPath = lhs.path ?? ""
+    let rhsPath = rhs.path ?? ""
+    if lhsPath != rhsPath {
+        return lhsPath < rhsPath
+    }
+
+    return lhs.pid < rhs.pid
+}
+
+private func appSortsBefore(_ lhs: AppListEntry, _ rhs: AppListEntry) -> Bool {
+    let lhsName = lhs.name.lowercased()
+    let rhsName = rhs.name.lowercased()
+    if lhsName != rhsName {
+        return lhsName < rhsName
+    }
+
+    let lhsBundleId = lhs.bundleId ?? ""
+    let rhsBundleId = rhs.bundleId ?? ""
+    if lhsBundleId != rhsBundleId {
+        return lhsBundleId < rhsBundleId
+    }
+
+    let lhsPath = lhs.path ?? ""
+    let rhsPath = rhs.path ?? ""
+    if lhsPath != rhsPath {
+        return lhsPath < rhsPath
+    }
+
+    return lhs.pid < rhs.pid
 }
 
 private func mainThread<T>(_ body: () throws -> T) rethrows -> T {

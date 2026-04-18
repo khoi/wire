@@ -17,6 +17,8 @@ final class AppCommandTests: WireCommandTestCase {
         XCTAssertTrue(output.stdout.contains("List running applications"))
         XCTAssertTrue(output.stdout.contains("launch"))
         XCTAssertTrue(output.stdout.contains("Launch an application"))
+        XCTAssertTrue(output.stdout.contains("quit"))
+        XCTAssertTrue(output.stdout.contains("Quit running applications"))
         XCTAssertEqual(output.stderr, "")
     }
 
@@ -35,6 +37,8 @@ final class AppCommandTests: WireCommandTestCase {
         XCTAssertTrue(output.stdout.contains("List running applications"))
         XCTAssertTrue(output.stdout.contains("launch"))
         XCTAssertTrue(output.stdout.contains("Launch an application"))
+        XCTAssertTrue(output.stdout.contains("quit"))
+        XCTAssertTrue(output.stdout.contains("Quit running applications"))
         XCTAssertEqual(output.stderr, "")
     }
 }

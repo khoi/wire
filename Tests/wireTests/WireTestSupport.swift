@@ -76,24 +76,41 @@ final class OutputCapture {
 }
 
 final class StubRunningApplication: RunningApplicationHandle {
+    enum TerminationMode {
+        case graceful
+        case force
+    }
+
     var localizedName: String?
     var bundleIdentifier: String?
+    var bundleURL: URL?
     var processIdentifier: Int32
     var readyAfterChecks: Int
     var readyChecks = 0
     var activateCalls = 0
     var activateResult = true
+    var terminated = false
+    var terminationMode: TerminationMode?
+    var terminationChecks = 0
+    var terminateAfterChecks = 1
+    var forceTerminateAfterChecks = 1
+    var terminateCalls = 0
+    var terminateResult = true
+    var forceTerminateCalls = 0
+    var forceTerminateResult = true
 
     init(
         localizedName: String? = "StubApp",
         bundleIdentifier: String? = "com.example.stub",
         processIdentifier: Int32 = 42,
-        readyAfterChecks: Int = 1
+        readyAfterChecks: Int = 1,
+        bundleURL: URL? = nil
     ) {
         self.localizedName = localizedName
         self.bundleIdentifier = bundleIdentifier
         self.processIdentifier = processIdentifier
         self.readyAfterChecks = readyAfterChecks
+        self.bundleURL = bundleURL
     }
 
     var isFinishedLaunching: Bool {
@@ -101,10 +118,52 @@ final class StubRunningApplication: RunningApplicationHandle {
         return readyChecks >= readyAfterChecks
     }
 
+    var isTerminated: Bool {
+        if terminated {
+            return true
+        }
+        guard let terminationMode else {
+            return false
+        }
+        terminationChecks += 1
+        let requiredChecks = switch terminationMode {
+        case .graceful:
+            terminateAfterChecks
+        case .force:
+            forceTerminateAfterChecks
+        }
+        if terminationChecks >= requiredChecks {
+            terminated = true
+        }
+        return terminated
+    }
+
     @discardableResult
     func activate(options: NSApplication.ActivationOptions) -> Bool {
         activateCalls += 1
         return activateResult
+    }
+
+    @discardableResult
+    func terminate() -> Bool {
+        terminateCalls += 1
+        guard terminateResult else {
+            return false
+        }
+        terminationMode = .graceful
+        terminationChecks = 0
+        return true
+    }
+
+    @discardableResult
+    func forceTerminate() -> Bool {
+        forceTerminateCalls += 1
+        guard forceTerminateResult else {
+            return false
+        }
+        terminationMode = .force
+        terminationChecks = 0
+        return true
     }
 }
 
@@ -120,8 +179,8 @@ final class AppState {
     var launchCalls: [LaunchCall] = []
     var launchedApplications: [StubRunningApplication] = []
     var launchError: Error?
-    var listedApplications: [AppListEntry] = []
-    var listIncludeAccessoryCalls: [Bool] = []
+    var runningApplications: [AppRuntimeApplication] = []
+    var runningIncludeAccessoryCalls: [Bool] = []
 
     func makeClient() -> AppClient {
         AppClient(
@@ -155,9 +214,9 @@ final class AppState {
                 }
                 return StubRunningApplication()
             },
-            listApplications: { includeAccessory in
-                self.listIncludeAccessoryCalls.append(includeAccessory)
-                return self.listedApplications
+            runningApplications: { includeAccessory in
+                self.runningIncludeAccessoryCalls.append(includeAccessory)
+                return self.runningApplications
             }
         )
     }
@@ -229,4 +288,22 @@ struct AppListItem: Decodable, Equatable {
     let bundleId: String?
     let path: String?
     let pid: Int32
+}
+
+struct AppQuitEnvelope: Decodable, Equatable {
+    let data: AppQuitPayload
+}
+
+struct AppQuitPayload: Decodable, Equatable {
+    let apps: [AppQuitItem]
+    let forced: Bool
+}
+
+struct AppQuitItem: Decodable, Equatable {
+    let name: String
+    let bundleId: String?
+    let path: String?
+    let pid: Int32
+    let terminated: Bool
+    let message: String?
 }
