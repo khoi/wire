@@ -18,6 +18,21 @@ final class AppLaunchCommandTests: WireCommandTestCase {
         XCTAssertEqual(output.stderr, "")
     }
 
+    func testLaunchWithoutTargetPrintsHelp() async {
+        let state = PermissionState(accessibility: true, screenRecording: true)
+        let output = OutputCapture()
+
+        let exitCode = await WireRunner.run(
+            arguments: ["app", "launch"],
+            environment: environment(state: state, output: output)
+        )
+
+        XCTAssertEqual(exitCode, 0)
+        XCTAssertTrue(output.stdout.contains("USAGE: wire app launch"))
+        XCTAssertTrue(output.stdout.contains("--bundle-id"))
+        XCTAssertEqual(output.stderr, "")
+    }
+
     func testLaunchByAppReturnsJSONWithoutFocusByDefault() async throws {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let apps = AppState()

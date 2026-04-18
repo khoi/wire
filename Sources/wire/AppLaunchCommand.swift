@@ -50,7 +50,7 @@ struct AppLaunchCommand: ParsableCommand, WireExecutableCommand {
         case (.some, .some):
             throw AppLaunchError.invalidTarget("provide either <app> or --bundle-id, not both")
         default:
-            throw AppLaunchError.invalidTarget("provide <app> or --bundle-id")
+            throw CleanExit.helpRequest(self)
         }
     }
 }
