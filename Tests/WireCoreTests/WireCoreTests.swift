@@ -146,34 +146,9 @@ final class WireCoreTests: XCTestCase {
 
     private func environment(state: PermissionState, output: OutputCapture) -> WireEnvironment {
         WireEnvironment(
-            permissions: PermissionsClient(
-                accessibilityStatus: {
-                    state.accessibility
-                },
-                accessibilityRequest: {
-                    state.accessibilityRequests += 1
-                    if state.grantAccessibilityOnRequest {
-                        state.accessibility = true
-                    }
-                    return state.accessibility
-                },
-                screenRecordingStatus: {
-                    state.screenRecording
-                },
-                screenRecordingRequest: {
-                    state.screenRecordingRequests += 1
-                    if state.grantScreenRecordingOnRequest {
-                        state.screenRecording = true
-                    }
-                    return state.screenRecording
-                }
-            ),
-            stdout: { text in
-                output.stdout += text
-            },
-            stderr: { text in
-                output.stderr += text
-            }
+            permissions: state.makeClient(),
+            stdout: output.writeStdout,
+            stderr: output.writeStderr
         )
     }
 
@@ -194,11 +169,44 @@ private final class PermissionState: @unchecked Sendable {
         self.accessibility = accessibility
         self.screenRecording = screenRecording
     }
+
+    func makeClient() -> PermissionsClient {
+        PermissionsClient(
+            accessibilityStatus: {
+                self.accessibility
+            },
+            accessibilityRequest: {
+                self.accessibilityRequests += 1
+                if self.grantAccessibilityOnRequest {
+                    self.accessibility = true
+                }
+                return self.accessibility
+            },
+            screenRecordingStatus: {
+                self.screenRecording
+            },
+            screenRecordingRequest: {
+                self.screenRecordingRequests += 1
+                if self.grantScreenRecordingOnRequest {
+                    self.screenRecording = true
+                }
+                return self.screenRecording
+            }
+        )
+    }
 }
 
 private final class OutputCapture {
     var stdout = ""
     var stderr = ""
+
+    func writeStdout(_ text: String) {
+        stdout += text
+    }
+
+    func writeStderr(_ text: String) {
+        stderr += text
+    }
 }
 
 private struct StatusEnvelope: Decodable, Equatable {

@@ -12,9 +12,13 @@ public enum WireRunner {
             let parsed = try Wire.parseAsRoot(arguments)
 
             if let executable = parsed as? any WireExecutableCommand {
-                let context = CommandContext(options: executable.outputOptions, environment: environment)
+                let outputOptions = executable.outputOptions
+                let context = CommandContext(
+                    environment: environment,
+                    logger: Logger(isVerbose: outputOptions.verbose, write: environment.stderr)
+                )
                 let execution = try executable.execute(context: context)
-                execution.write(options: executable.outputOptions, environment: environment)
+                execution.write(options: outputOptions, environment: environment)
                 return execution.exitCode
             }
 

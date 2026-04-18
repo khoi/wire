@@ -96,15 +96,11 @@ struct Logger {
 }
 
 struct CommandContext {
-    let options: OutputOptions
     let environment: WireEnvironment
+    let logger: Logger
 
     var permissions: PermissionsClient {
         environment.permissions
-    }
-
-    var logger: Logger {
-        Logger(isVerbose: options.verbose, write: environment.stderr)
     }
 }
 
@@ -197,19 +193,16 @@ struct CommandExecution {
         plainText: String,
         exitCode: Int32 = 0
     ) throws -> CommandExecution {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        let json = try encoder.encode(SuccessEnvelope(command: command, data: data))
         return CommandExecution(
             exitCode: exitCode,
             plainText: plainText,
-            jsonText: String(decoding: json, as: UTF8.self)
+            jsonText: try encodeJSON(SuccessEnvelope(command: command, data: data))
         )
     }
 
     func write(options: OutputOptions, environment: WireEnvironment) {
         let text = options.plain ? plainText : jsonText
-        environment.stdout(text.hasSuffix("\n") ? text : text + "\n")
+        environment.stdout(terminated(text))
     }
 }
 
@@ -221,23 +214,18 @@ struct WireFailure: Error {
 
     func write(options: OutputOptions, environment: WireEnvironment) {
         if options.plain {
-            environment.stdout(message.hasSuffix("\n") ? message : message + "\n")
+            environment.stdout(terminated(message))
             return
         }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        let json = try? encoder.encode(
-            FailureEnvelope(
-                command: command,
-                error: FailureBody(code: code, message: message)
-            )
+        let payload = FailureEnvelope(
+            command: command,
+            error: FailureBody(code: code, message: message)
         )
-        if let json {
-            let text = String(decoding: json, as: UTF8.self)
-            environment.stdout(text.hasSuffix("\n") ? text : text + "\n")
+        if let text = try? encodeJSON(payload) {
+            environment.stdout(terminated(text))
             return
         }
-        environment.stdout("{\"command\":\"\(command)\",\"error\":{\"code\":\"\(code)\",\"message\":\"\(message)\"},\"ok\":false}\n")
+        environment.stdout(terminated("{\"command\":\"\(command)\",\"error\":{\"code\":\"\(code)\",\"message\":\"\(message)\"},\"ok\":false}"))
     }
 }
 
@@ -353,4 +341,15 @@ struct PermissionsService {
 protocol WireExecutableCommand {
     var outputOptions: OutputOptions { get }
     func execute(context: CommandContext) throws -> CommandExecution
+}
+
+private func terminated(_ text: String) -> String {
+    text.hasSuffix("\n") ? text : text + "\n"
+}
+
+private func encodeJSON<Value: Encodable>(_ value: Value) throws -> String {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    let data = try encoder.encode(value)
+    return String(decoding: data, as: UTF8.self)
 }
