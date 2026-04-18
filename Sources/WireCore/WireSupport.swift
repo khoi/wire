@@ -349,7 +349,7 @@ private func terminated(_ text: String) -> String {
 
 private func encodeJSON<Value: Encodable>(_ value: Value) throws -> String {
     let encoder = JSONEncoder()
-    encoder.outputFormatting = [.sortedKeys]
+    encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
     let data = try encoder.encode(value)
     return String(decoding: data, as: UTF8.self)
 }
