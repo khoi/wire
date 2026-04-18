@@ -732,7 +732,7 @@ enum LiveInspectSystem {
         let screenFrame = try frameAttribute(element)
         let actions = try actionNames(element)
         let valueSettable = try isValueSettable(element)
-        let name = inspectElementName(
+        var name = inspectElementName(
             .init(
                 role: rawRole,
                 title: rawTitle,
@@ -742,6 +742,9 @@ enum LiveInspectSystem {
                 subrole: rawSubrole
             )
         )
+        if name.isEmpty {
+            name = try descendantInspectElementName(of: element)
+        }
 
         if shouldIncludeElement(role: rawRole, actions: actions, name: name) {
             candidates.append(
@@ -922,12 +925,15 @@ enum LiveInspectSystem {
         actions: [String],
         name: String
     ) -> Bool {
+        guard !name.isEmpty else {
+            return false
+        }
         let publicRole = publicRole(for: role, actions: actions)
         switch publicRole {
         case "button", "text-field", "link", "checkbox", "radio-button", "slider", "menu-item":
             return true
         case "text":
-            return !name.isEmpty
+            return true
         default:
             return false
         }
@@ -1111,6 +1117,56 @@ enum LiveInspectSystem {
                 "failed to read accessibility attribute \(attribute as String)"
             )
         }
+    }
+
+    private static func descendantInspectElementName(
+        of element: AXUIElement,
+        maxDepth: Int = 3
+    ) throws -> String {
+        var visited = Set<CFHashCode>()
+        return try descendantInspectElementName(
+            of: element,
+            remainingDepth: maxDepth,
+            visited: &visited
+        )
+    }
+
+    private static func descendantInspectElementName(
+        of element: AXUIElement,
+        remainingDepth: Int,
+        visited: inout Set<CFHashCode>
+    ) throws -> String {
+        guard remainingDepth > 0 else {
+            return ""
+        }
+        let hash = CFHash(element)
+        guard visited.insert(hash).inserted else {
+            return ""
+        }
+        for child in try children(of: element) {
+            let childName = inspectElementName(
+                .init(
+                    role: try stringAttribute(child, attribute: kAXRoleAttribute as CFString) ?? "AXUnknown",
+                    title: try stringAttribute(child, attribute: kAXTitleAttribute as CFString),
+                    description: try stringAttribute(child, attribute: kAXDescriptionAttribute as CFString),
+                    help: try stringAttribute(child, attribute: kAXHelpAttribute as CFString),
+                    value: try stringValueAttribute(child, attribute: kAXValueAttribute as CFString),
+                    subrole: try stringAttribute(child, attribute: kAXSubroleAttribute as CFString)
+                )
+            )
+            if !childName.isEmpty {
+                return childName
+            }
+            let nestedName = try descendantInspectElementName(
+                of: child,
+                remainingDepth: remainingDepth - 1,
+                visited: &visited
+            )
+            if !nestedName.isEmpty {
+                return nestedName
+            }
+        }
+        return ""
     }
 
     private static func axValue(_ value: AnyObject) -> AXValue? {
