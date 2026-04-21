@@ -81,7 +81,6 @@ enum ScrollError: WireError {
     case elementNotFound(String)
     case ambiguousQuery(String)
     case staleRef(String)
-    case targetNotFrontmost(String)
     case elementGeometryUnavailable(String)
     case scrollActionFailed(String)
 
@@ -103,8 +102,6 @@ enum ScrollError: WireError {
             return "ambiguous_query"
         case .staleRef:
             return "stale_ref"
-        case .targetNotFrontmost:
-            return "target_not_frontmost"
         case .elementGeometryUnavailable:
             return "element_geometry_unavailable"
         case .scrollActionFailed:
@@ -120,7 +117,6 @@ enum ScrollError: WireError {
              .elementNotFound(let message),
              .ambiguousQuery(let message),
              .staleRef(let message),
-             .targetNotFrontmost(let message),
              .elementGeometryUnavailable(let message),
              .scrollActionFailed(let message):
             return message

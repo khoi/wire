@@ -653,7 +653,8 @@ enum LiveInspectSystem {
         try postScroll(
             direction: direction,
             amount: amount,
-            point: nil
+            point: nil,
+            pid: nil
         )
     }
 
@@ -678,21 +679,14 @@ enum LiveInspectSystem {
             }
         }
 
-        guard resolved.application.focused else {
-            throw ScrollError.targetNotFrontmost("target app is not frontmost")
-        }
-        guard let frontmostWindow = try? resolveWindow(for: resolved.application),
-              frontmostWindow.id == resolved.window.id
-        else {
-            throw ScrollError.targetNotFrontmost("target window is not frontmost")
-        }
         guard let frame = resolved.screenFrame ?? element.resolver.screenFrame else {
             throw ScrollError.elementGeometryUnavailable("element geometry is unavailable for \(element.id)")
         }
         try postScroll(
             direction: direction,
             amount: amount,
-            point: CGPoint(x: frame.midX, y: frame.midY)
+            point: CGPoint(x: frame.midX, y: frame.midY),
+            pid: resolved.application.processID
         )
     }
 
@@ -1014,7 +1008,8 @@ enum LiveInspectSystem {
     private static func postScroll(
         direction: ScrollDirection,
         amount: Int,
-        point: CGPoint?
+        point: CGPoint?,
+        pid: pid_t?
     ) throws {
         for _ in 0..<amount {
             guard let event = CGEvent(
@@ -1030,7 +1025,11 @@ enum LiveInspectSystem {
             if let point {
                 event.location = point
             }
-            event.post(tap: .cghidEventTap)
+            if let pid {
+                event.postToPid(pid)
+            } else {
+                event.post(tap: .cghidEventTap)
+            }
         }
     }
 

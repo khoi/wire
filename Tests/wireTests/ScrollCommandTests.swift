@@ -278,7 +278,7 @@ final class ScrollCommandTests: WireCommandTestCase {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let output = OutputCapture()
         let scrollState = ScrollState()
-        scrollState.elementError = ScrollError.targetNotFrontmost("target app is not frontmost")
+        scrollState.elementError = ScrollError.scrollActionFailed("failed to scroll target")
         let stateDirectory = makeTemporaryDirectory()
         let snapshot = try storeSnapshot(
             in: stateDirectory,
@@ -298,7 +298,7 @@ final class ScrollCommandTests: WireCommandTestCase {
 
         XCTAssertEqual(exitCode, 1)
         let response = try decode(ErrorEnvelope.self, from: output.stdout)
-        XCTAssertEqual(response.error.code, "target_not_frontmost")
+        XCTAssertEqual(response.error.code, "scroll_action_failed")
     }
 
     func testScrollWithTargetReturnsStaleRefError() async throws {

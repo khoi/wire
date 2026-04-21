@@ -125,7 +125,7 @@ Scrolls the focused area or a matched element.
 - `n` is wheel ticks and must be greater than zero
 - with no target, scrolls the currently focused area
 - with a target, resolves from the latest inspect snapshot
-- with a target, never focuses the app and fails if target app/window is not frontmost
+- with a target, never focuses the app and posts scroll to the target process in background
 
 ### `screenshot [path]`
 
