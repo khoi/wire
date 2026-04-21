@@ -9,6 +9,7 @@ class WireCommandTestCase: XCTestCase {
         apps: AppClient? = nil,
         inspect: InspectClient? = nil,
         click: ClickClient? = nil,
+        press: PressClient? = nil,
         scroll: ScrollClient? = nil,
         type: TypeClient? = nil,
         currentDirectoryPath: String = "/tmp/wire-tests",
@@ -19,6 +20,7 @@ class WireCommandTestCase: XCTestCase {
             apps: apps ?? AppState().makeClient(),
             inspect: inspect ?? InspectState().makeClient(),
             click: click ?? ClickState().makeClient(),
+            press: press ?? PressState().makeClient(),
             scroll: scroll ?? ScrollState().makeClient(),
             type: type ?? TypeState().makeClient(),
             currentDirectoryPath: currentDirectoryPath,
@@ -351,6 +353,36 @@ final class TypeState {
     }
 }
 
+final class PressState {
+    struct Call: Equatable {
+        let input: String
+        let normalized: String
+        let key: String
+        let modifiers: [String]
+    }
+
+    var calls: [Call] = []
+    var error: Error?
+
+    func makeClient() -> PressClient {
+        PressClient(
+            perform: { action in
+                self.calls.append(
+                    .init(
+                        input: action.input,
+                        normalized: action.normalized,
+                        key: action.key,
+                        modifiers: action.modifiers
+                    )
+                )
+                if let error = self.error {
+                    throw error
+                }
+            }
+        )
+    }
+}
+
 final class ScrollState {
     struct FocusedCall: Equatable {
         let direction: ScrollDirection
@@ -449,6 +481,18 @@ struct TypePayload: Decodable, Equatable {
     let into: String?
     let target: Target?
     let typed: Bool
+}
+
+struct PressEnvelope: Decodable, Equatable {
+    let data: PressPayload
+}
+
+struct PressPayload: Decodable, Equatable {
+    let input: String
+    let normalized: String
+    let key: String
+    let modifiers: [String]
+    let pressed: Bool
 }
 
 struct ScrollEnvelope: Decodable, Equatable {

@@ -44,6 +44,7 @@ struct WireEnvironment {
     var apps: AppClient
     var inspect: InspectClient
     var click: ClickClient
+    var press: PressClient
     var scroll: ScrollClient
     var type: TypeClient
     var currentDirectoryPath: String
@@ -56,6 +57,7 @@ struct WireEnvironment {
         apps: AppClient,
         inspect: InspectClient,
         click: ClickClient,
+        press: PressClient,
         scroll: ScrollClient,
         type: TypeClient,
         currentDirectoryPath: String,
@@ -67,6 +69,7 @@ struct WireEnvironment {
         self.apps = apps
         self.inspect = inspect
         self.click = click
+        self.press = press
         self.scroll = scroll
         self.type = type
         self.currentDirectoryPath = currentDirectoryPath
@@ -80,6 +83,7 @@ struct WireEnvironment {
         apps: AppClient? = nil,
         inspect: InspectClient? = nil,
         click: ClickClient? = nil,
+        press: PressClient? = nil,
         scroll: ScrollClient? = nil,
         type: TypeClient? = nil,
         currentDirectoryPath: String = FileManager.default.currentDirectoryPath,
@@ -90,6 +94,7 @@ struct WireEnvironment {
             apps: apps ?? .live(),
             inspect: inspect ?? .live(),
             click: click ?? .live(),
+            press: press ?? .live(),
             scroll: scroll ?? .live(),
             type: type ?? .live(),
             currentDirectoryPath: currentDirectoryPath,
@@ -142,6 +147,10 @@ struct CommandContext {
 
     var click: ClickClient {
         environment.click
+    }
+
+    var press: PressClient {
+        environment.press
     }
 
     var scroll: ScrollClient {

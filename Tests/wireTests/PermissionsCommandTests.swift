@@ -33,6 +33,8 @@ final class PermissionsCommandTests: WireCommandTestCase {
         XCTAssertTrue(output.stdout.contains("Manage running applications"))
         XCTAssertTrue(output.stdout.contains("click"))
         XCTAssertTrue(output.stdout.contains("inspect"))
+        XCTAssertTrue(output.stdout.contains("press"))
+        XCTAssertTrue(output.stdout.contains("Press a key or key combo"))
         XCTAssertTrue(output.stdout.contains("scroll"))
         XCTAssertTrue(output.stdout.contains("permissions"))
         XCTAssertTrue(output.stdout.contains("Check and grant required permissions"))

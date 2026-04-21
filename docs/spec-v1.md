@@ -117,6 +117,18 @@ Types text into the focused field, or into a matched element when `--into` is pr
 
 Sends a key or shortcut such as `enter`, `escape`, `cmd+l`.
 
+- accepts one key or combo per call
+- combo syntax is strict and uses `+`, for example `cmd+shift+tab`
+- supports key names:
+  `up`, `down`, `left`, `right`, `home`, `end`, `pageup`, `pagedown`,
+  `delete`, `forward_delete`, `clear`,
+  `return`, `enter`, `tab`, `escape`, `space`,
+  `f1` to `f12`,
+  `caps_lock`, `help`
+- supports alphanumeric keys `a-z` and `0-9` for shortcuts like `cmd+l`
+- supports modifiers `cmd`, `ctrl`, `alt`, `shift`, `fn` with common aliases
+- never focuses or activates any app
+
 ### `scroll [<@eN|query>] --up <n>|--down <n>`
 
 Scrolls the focused area or a matched element.
