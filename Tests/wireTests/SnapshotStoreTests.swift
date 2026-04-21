@@ -88,7 +88,23 @@ final class SnapshotStoreTests: XCTestCase {
         XCTAssertEqual(try store.latestSnapshotID(), second.snapshot)
     }
 
-    private func capturedInspection() -> CapturedInspection {
+    func testStoreMarksDisabledPressableElementAsNotClickable() throws {
+        let stateDirectory = makeTemporaryDirectory()
+        let store = SnapshotStore(
+            stateDirectoryPath: stateDirectory.path,
+            currentDirectoryPath: "/tmp/project"
+        )
+
+        let snapshot = try store.store(capturedInspection(enabled: false))
+        XCTAssertEqual(snapshot.elements.count, 1)
+        XCTAssertFalse(snapshot.elements[0].clickable)
+        XCTAssertEqual(snapshot.elements[0].enabled, false)
+    }
+
+    private func capturedInspection(
+        enabled: Bool? = true,
+        actions: [String] = ["AXPress"]
+    ) -> CapturedInspection {
         CapturedInspection(
             app: .init(
                 name: "Google Chrome",
@@ -107,7 +123,7 @@ final class SnapshotStoreTests: XCTestCase {
                     role: "text-field",
                     name: "Search",
                     value: nil,
-                    enabled: true,
+                    enabled: enabled,
                     screenFrame: CGRect(x: 120, y: 620, width: 320, height: 28),
                     resolver: .init(
                         appName: "Google Chrome",
@@ -124,7 +140,7 @@ final class SnapshotStoreTests: XCTestCase {
                         rawHelp: nil,
                         rawValue: nil,
                         screenFrame: CGRect(x: 120, y: 620, width: 320, height: 28),
-                        actions: ["AXPress"],
+                        actions: actions,
                         valueSettable: true
                     )
                 )

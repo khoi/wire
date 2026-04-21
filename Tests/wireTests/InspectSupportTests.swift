@@ -1,3 +1,4 @@
+@preconcurrency import ApplicationServices
 import XCTest
 @testable import wire
 
@@ -58,5 +59,11 @@ final class InspectSupportTests: XCTestCase {
             ),
             "Continue"
         )
+    }
+
+    func testAXErrorDetailIncludesCaseAndCode() {
+        let detail = axErrorDetail(.actionUnsupported)
+        XCTAssertTrue(detail.contains("actionUnsupported"))
+        XCTAssertTrue(detail.contains(String(AXError.actionUnsupported.rawValue)))
     }
 }

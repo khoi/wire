@@ -208,6 +208,39 @@ final class ClickCommandTests: WireCommandTestCase {
         )
     }
 
+    func testClickQuerySkipsDisabledElements() async throws {
+        let state = PermissionState(accessibility: true, screenRecording: true)
+        let output = OutputCapture()
+        let clickState = ClickState()
+        let stateDirectory = makeTemporaryDirectory()
+        let snapshot = try storeSnapshot(
+            in: stateDirectory,
+            inspection: capturedInspection(elements: [
+                buttonElement(name: "Continue", path: [0], enabled: false),
+                buttonElement(name: "Continue", path: [1], enabled: true),
+            ])
+        )
+        let enabledButton = try XCTUnwrap(
+            snapshot.elements.first(where: { $0.name == "Continue" && $0.enabled == true })
+        )
+
+        let exitCode = await WireRunner.run(
+            arguments: ["click", "Continue"],
+            environment: environment(
+                state: state,
+                output: output,
+                click: clickState.makeClient(),
+                stateDirectoryPath: stateDirectory.path
+            )
+        )
+
+        XCTAssertEqual(exitCode, 0)
+        XCTAssertEqual(
+            clickState.calls,
+            [.init(snapshot: snapshot.snapshot, elementID: enabledButton.id, right: false)]
+        )
+    }
+
     func testClickReturnsBatchFailureForAmbiguousQuery() async throws {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let output = OutputCapture()
@@ -409,13 +442,14 @@ final class ClickCommandTests: WireCommandTestCase {
 
     private func buttonElement(
         name: String,
-        path: [Int]
+        path: [Int],
+        enabled: Bool? = true
     ) -> CapturedInspection.Element {
         .init(
             role: "button",
             name: name,
             value: nil,
-            enabled: true,
+            enabled: enabled,
             screenFrame: CGRect(x: 120 + CGFloat(path.last ?? 0) * 20, y: 140, width: 80, height: 28),
             resolver: .init(
                 appName: "Reminders",

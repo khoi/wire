@@ -295,6 +295,9 @@ struct ClickService {
                 guard element.name.compare(query.name, options: [.caseInsensitive]) == .orderedSame else {
                     return false
                 }
+                guard element.enabled != false else {
+                    return false
+                }
                 if let role = query.role,
                    element.role.compare(role, options: [.caseInsensitive]) != .orderedSame
                 {

@@ -362,7 +362,7 @@ struct SnapshotStore {
                     id: "",
                     role: candidate.role,
                     name: candidate.name,
-                    clickable: candidate.resolver.actions.contains("AXPress"),
+                    clickable: candidate.resolver.actions.contains("AXPress") && candidate.enabled != false,
                     value: candidate.value,
                     enabled: candidate.enabled,
                     resolver: candidate.resolver
@@ -642,7 +642,7 @@ enum LiveInspectSystem {
         }
         let error = AXUIElementPerformAction(resolved.element, kAXPressAction as CFString)
         guard error == .success else {
-            throw ClickError.elementActionFailed("failed to click \(element.id)")
+            throw ClickError.elementActionFailed("failed to click \(element.id): \(axErrorDetail(error))")
         }
     }
 
@@ -1520,6 +1520,33 @@ func inspectElementName(_ info: InspectElementNameInfo) -> String {
     }
     return ""
 }
+
+func axErrorDetail(_ error: AXError) -> String {
+    "\(axErrorName(error)) [\(error.rawValue)]"
+}
+
+private func axErrorName(_ error: AXError) -> String {
+    axErrorNames[error.rawValue] ?? "unknown"
+}
+
+private let axErrorNames: [AXError.Code: String] = [
+    AXError.success.rawValue: "success",
+    AXError.failure.rawValue: "failure",
+    AXError.illegalArgument.rawValue: "illegalArgument",
+    AXError.invalidUIElement.rawValue: "invalidUIElement",
+    AXError.invalidUIElementObserver.rawValue: "invalidUIElementObserver",
+    AXError.cannotComplete.rawValue: "cannotComplete",
+    AXError.attributeUnsupported.rawValue: "attributeUnsupported",
+    AXError.actionUnsupported.rawValue: "actionUnsupported",
+    AXError.notificationUnsupported.rawValue: "notificationUnsupported",
+    AXError.notImplemented.rawValue: "notImplemented",
+    AXError.notificationAlreadyRegistered.rawValue: "notificationAlreadyRegistered",
+    AXError.notificationNotRegistered.rawValue: "notificationNotRegistered",
+    AXError.apiDisabled.rawValue: "apiDisabled",
+    AXError.noValue.rawValue: "noValue",
+    AXError.parameterizedAttributeUnsupported.rawValue: "parameterizedAttributeUnsupported",
+    AXError.notEnoughPrecision.rawValue: "notEnoughPrecision",
+]
 
 private func inspectButtonName(_ subrole: String?) -> String? {
     switch subrole {
