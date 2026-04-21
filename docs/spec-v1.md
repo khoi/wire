@@ -121,6 +121,12 @@ Sends a key or shortcut such as `enter`, `escape`, `cmd+l`.
 
 Scrolls the focused area or a matched element.
 
+- requires exactly one of `--up` or `--down`
+- `n` is wheel ticks and must be greater than zero
+- with no target, scrolls the currently focused area
+- with a target, resolves from the latest inspect snapshot
+- with a target, never focuses the app and fails if target app/window is not frontmost
+
 ### `screenshot [path]`
 
 Captures a screenshot and returns the saved path.

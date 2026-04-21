@@ -9,6 +9,7 @@ class WireCommandTestCase: XCTestCase {
         apps: AppClient? = nil,
         inspect: InspectClient? = nil,
         click: ClickClient? = nil,
+        scroll: ScrollClient? = nil,
         type: TypeClient? = nil,
         currentDirectoryPath: String = "/tmp/wire-tests",
         stateDirectoryPath: String = "/tmp/wire-state-tests"
@@ -18,6 +19,7 @@ class WireCommandTestCase: XCTestCase {
             apps: apps ?? AppState().makeClient(),
             inspect: inspect ?? InspectState().makeClient(),
             click: click ?? ClickState().makeClient(),
+            scroll: scroll ?? ScrollState().makeClient(),
             type: type ?? TypeState().makeClient(),
             currentDirectoryPath: currentDirectoryPath,
             stateDirectoryPath: stateDirectoryPath,
@@ -349,6 +351,52 @@ final class TypeState {
     }
 }
 
+final class ScrollState {
+    struct FocusedCall: Equatable {
+        let direction: ScrollDirection
+        let amount: Int
+    }
+
+    struct ElementCall: Equatable {
+        let elementID: String
+        let direction: ScrollDirection
+        let amount: Int
+    }
+
+    var focusedCalls: [FocusedCall] = []
+    var elementCalls: [ElementCall] = []
+    var focusedError: Error?
+    var elementError: Error?
+
+    func makeClient() -> ScrollClient {
+        ScrollClient(
+            scrollFocused: { direction, amount in
+                self.focusedCalls.append(
+                    .init(
+                        direction: direction,
+                        amount: amount
+                    )
+                )
+                if let focusedError = self.focusedError {
+                    throw focusedError
+                }
+            },
+            scrollElement: { element, direction, amount in
+                self.elementCalls.append(
+                    .init(
+                        elementID: element.id,
+                        direction: direction,
+                        amount: amount
+                    )
+                )
+                if let elementError = self.elementError {
+                    throw elementError
+                }
+            }
+        )
+    }
+}
+
 struct StatusEnvelope: Decodable, Equatable {
     let data: StatusData
 }
@@ -401,6 +449,25 @@ struct TypePayload: Decodable, Equatable {
     let into: String?
     let target: Target?
     let typed: Bool
+}
+
+struct ScrollEnvelope: Decodable, Equatable {
+    let snapshot: String?
+    let data: ScrollPayload
+}
+
+struct ScrollPayload: Decodable, Equatable {
+    struct Target: Decodable, Equatable {
+        let id: String
+        let role: String
+        let name: String
+    }
+
+    let direction: String
+    let amount: Int
+    let on: String?
+    let target: Target?
+    let scrolled: Bool
 }
 
 struct AppLaunchEnvelope: Decodable, Equatable {

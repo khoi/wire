@@ -646,6 +646,56 @@ enum LiveInspectSystem {
         }
     }
 
+    static func scroll(
+        direction: ScrollDirection,
+        amount: Int
+    ) throws {
+        try postScroll(
+            direction: direction,
+            amount: amount,
+            point: nil
+        )
+    }
+
+    static func scroll(
+        element: StoredInspectSnapshot.Element,
+        direction: ScrollDirection,
+        amount: Int
+    ) throws {
+        let staleMessage = "\(element.id) is no longer valid"
+        let resolved: ResolvedLiveElement
+        do {
+            resolved = try resolveElement(
+                element: element,
+                staleMessage: staleMessage
+            )
+        } catch let error as ClickError {
+            switch error {
+            case .staleRef(let message):
+                throw ScrollError.staleRef(message)
+            default:
+                throw ScrollError.scrollActionFailed("failed to scroll \(element.id): \(error.message)")
+            }
+        }
+
+        guard resolved.application.focused else {
+            throw ScrollError.targetNotFrontmost("target app is not frontmost")
+        }
+        guard let frontmostWindow = try? resolveWindow(for: resolved.application),
+              frontmostWindow.id == resolved.window.id
+        else {
+            throw ScrollError.targetNotFrontmost("target window is not frontmost")
+        }
+        guard let frame = resolved.screenFrame ?? element.resolver.screenFrame else {
+            throw ScrollError.elementGeometryUnavailable("element geometry is unavailable for \(element.id)")
+        }
+        try postScroll(
+            direction: direction,
+            amount: amount,
+            point: CGPoint(x: frame.midX, y: frame.midY)
+        )
+    }
+
     static func type(text: String) throws {
         try postText(text)
     }
@@ -959,6 +1009,29 @@ enum LiveInspectSystem {
         }
         down.post(tap: .cghidEventTap)
         up.post(tap: .cghidEventTap)
+    }
+
+    private static func postScroll(
+        direction: ScrollDirection,
+        amount: Int,
+        point: CGPoint?
+    ) throws {
+        for _ in 0..<amount {
+            guard let event = CGEvent(
+                scrollWheelEvent2Source: nil,
+                units: .line,
+                wheelCount: 1,
+                wheel1: direction.wheelDelta,
+                wheel2: 0,
+                wheel3: 0
+            ) else {
+                throw ScrollError.scrollActionFailed("failed to create scroll event")
+            }
+            if let point {
+                event.location = point
+            }
+            event.post(tap: .cghidEventTap)
+        }
     }
 
     private static func postText(_ text: String) throws {

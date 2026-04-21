@@ -7,6 +7,7 @@ struct Wire: ParsableCommand {
             AppCommand.self,
             ClickCommand.self,
             InspectCommand.self,
+            ScrollCommand.self,
             TypeCommand.self,
             PermissionsCommand.self,
         ]
