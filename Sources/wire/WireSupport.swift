@@ -44,6 +44,7 @@ struct WireEnvironment {
     var apps: AppClient
     var inspect: InspectClient
     var click: ClickClient
+    var type: TypeClient
     var currentDirectoryPath: String
     var stateDirectoryPath: String
     var stdout: (String) -> Void
@@ -54,6 +55,7 @@ struct WireEnvironment {
         apps: AppClient,
         inspect: InspectClient,
         click: ClickClient,
+        type: TypeClient,
         currentDirectoryPath: String,
         stateDirectoryPath: String,
         stdout: @escaping (String) -> Void,
@@ -63,6 +65,7 @@ struct WireEnvironment {
         self.apps = apps
         self.inspect = inspect
         self.click = click
+        self.type = type
         self.currentDirectoryPath = currentDirectoryPath
         self.stateDirectoryPath = stateDirectoryPath
         self.stdout = stdout
@@ -74,6 +77,7 @@ struct WireEnvironment {
         apps: AppClient? = nil,
         inspect: InspectClient? = nil,
         click: ClickClient? = nil,
+        type: TypeClient? = nil,
         currentDirectoryPath: String = FileManager.default.currentDirectoryPath,
         stateDirectoryPath: String = FileManager.default.temporaryDirectory.path
     ) -> WireEnvironment {
@@ -82,6 +86,7 @@ struct WireEnvironment {
             apps: apps ?? .live(),
             inspect: inspect ?? .live(),
             click: click ?? .live(),
+            type: type ?? .live(),
             currentDirectoryPath: currentDirectoryPath,
             stateDirectoryPath: stateDirectoryPath,
             stdout: { text in
@@ -132,6 +137,10 @@ struct CommandContext {
 
     var click: ClickClient {
         environment.click
+    }
+
+    var type: TypeClient {
+        environment.type
     }
 
     var currentDirectoryPath: String {

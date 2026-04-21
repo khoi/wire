@@ -646,6 +646,57 @@ enum LiveInspectSystem {
         }
     }
 
+    static func type(text: String) throws {
+        try postText(text)
+    }
+
+    static func type(
+        element: StoredInspectSnapshot.Element,
+        text: String
+    ) throws {
+        let staleMessage = "\(element.id) is no longer valid"
+        let resolved: ResolvedLiveElement
+        do {
+            resolved = try resolveElement(
+                element: element,
+                staleMessage: staleMessage
+            )
+        } catch let error as ClickError {
+            switch error {
+            case .staleRef(let message):
+                throw TypeError.staleRef(message)
+            default:
+                throw TypeError.typeActionFailed("failed to type \(element.id): \(error.message)")
+            }
+        }
+
+        var settable = DarwinBoolean(false)
+        let settableError = AXUIElementIsAttributeSettable(
+            resolved.element,
+            kAXValueAttribute as CFString,
+            &settable
+        )
+        switch settableError {
+        case .success:
+            guard settable.boolValue else {
+                throw TypeError.elementNotTypeable("\(element.id) is not typeable")
+            }
+        case .attributeUnsupported:
+            throw TypeError.elementNotTypeable("\(element.id) is not typeable")
+        default:
+            throw TypeError.typeActionFailed("failed to type \(element.id): \(axErrorDetail(settableError))")
+        }
+
+        let error = AXUIElementSetAttributeValue(
+            resolved.element,
+            kAXValueAttribute as CFString,
+            text as CFTypeRef
+        )
+        guard error == .success else {
+            throw TypeError.typeActionFailed("failed to type \(element.id): \(axErrorDetail(error))")
+        }
+    }
+
     private static func resolveApplication(target: InspectTarget) throws -> ResolvedApplication {
         let running = runningApplications()
         switch target {
@@ -908,6 +959,28 @@ enum LiveInspectSystem {
         }
         down.post(tap: .cghidEventTap)
         up.post(tap: .cghidEventTap)
+    }
+
+    private static func postText(_ text: String) throws {
+        for utf16Unit in text.utf16 {
+            var character = utf16Unit
+            guard let down = CGEvent(
+                keyboardEventSource: nil,
+                virtualKey: 0,
+                keyDown: true
+            ),
+            let up = CGEvent(
+                keyboardEventSource: nil,
+                virtualKey: 0,
+                keyDown: false
+            ) else {
+                throw TypeError.typeActionFailed("failed to create keyboard events")
+            }
+            down.keyboardSetUnicodeString(stringLength: 1, unicodeString: &character)
+            up.keyboardSetUnicodeString(stringLength: 1, unicodeString: &character)
+            down.post(tap: .cghidEventTap)
+            up.post(tap: .cghidEventTap)
+        }
     }
 
     private static func resolveWindow(for application: ResolvedApplication) throws -> VisibleWindow {
@@ -1529,7 +1602,7 @@ private func axErrorName(_ error: AXError) -> String {
     axErrorNames[error.rawValue] ?? "unknown"
 }
 
-private let axErrorNames: [AXError.Code: String] = [
+private let axErrorNames: [Int32: String] = [
     AXError.success.rawValue: "success",
     AXError.failure.rawValue: "failure",
     AXError.illegalArgument.rawValue: "illegalArgument",

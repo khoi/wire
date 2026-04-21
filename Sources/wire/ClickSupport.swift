@@ -1,70 +1,6 @@
-@preconcurrency import ApplicationServices
 import Foundation
 
-enum ClickTarget: Equatable {
-    case reference(String)
-    case query(ClickQuery)
-
-    init(parsing input: String) throws {
-        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            throw ClickError.invalidTarget("click target cannot be empty")
-        }
-        if ClickTarget.isReference(trimmed) {
-            self = .reference(trimmed)
-            return
-        }
-        self = .query(try ClickQuery(parsing: trimmed))
-    }
-
-    private static func isReference(_ value: String) -> Bool {
-        guard value.hasPrefix("@e"), value.count > 2 else {
-            return false
-        }
-        return value.dropFirst(2).allSatisfy(\.isNumber)
-    }
-}
-
-struct ClickQuery: Equatable {
-    let role: String?
-    let name: String
-
-    init(role: String?, name: String) {
-        self.role = role
-        self.name = name
-    }
-
-    init(parsing input: String) throws {
-        if let query = ClickQuery.parseScopedQuery(input) {
-            self = query
-            return
-        }
-        let name = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else {
-            throw ClickError.invalidTarget("click target cannot be empty")
-        }
-        self = ClickQuery(role: nil, name: name)
-    }
-
-    private static func parseScopedQuery(_ input: String) -> ClickQuery? {
-        guard let colonIndex = input.firstIndex(of: ":") else {
-            return nil
-        }
-        let role = input[..<colonIndex].trimmingCharacters(in: .whitespacesAndNewlines)
-        let remainder = input[input.index(after: colonIndex)...]
-        guard remainder.first == "\"", remainder.last == "\"", remainder.count >= 2 else {
-            return nil
-        }
-        let name = remainder
-            .dropFirst()
-            .dropLast()
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !role.isEmpty, !name.isEmpty else {
-            return nil
-        }
-        return ClickQuery(role: role, name: name)
-    }
-}
+typealias ClickTarget = SnapshotElementTarget
 
 struct ClickClient {
     typealias Perform = (
@@ -284,57 +220,24 @@ struct ClickService {
         snapshot: StoredInspectSnapshot,
         right: Bool
     ) throws -> StoredInspectSnapshot.Element {
-        switch target {
-        case .reference(let reference):
-            guard let element = snapshot.elements.first(where: { $0.id == reference }) else {
-                throw ClickError.elementNotFound("element not found: \(reference)")
-            }
-            return element
-        case .query(let query):
-            let matches = snapshot.elements.filter { element in
-                guard element.name.compare(query.name, options: [.caseInsensitive]) == .orderedSame else {
-                    return false
-                }
+        try resolveSnapshotElement(
+            target: target,
+            snapshot: snapshot,
+            queryFilter: { element in
                 guard element.enabled != false else {
-                    return false
-                }
-                if let role = query.role,
-                   element.role.compare(role, options: [.caseInsensitive]) != .orderedSame
-                {
                     return false
                 }
                 if right {
                     return element.resolver.screenFrame != nil
                 }
                 return element.clickable
+            },
+            notFound: { description in
+                ClickError.elementNotFound("element not found: \(description)")
+            },
+            ambiguous: { description in
+                ClickError.ambiguousQuery("multiple elements matched \(description)")
             }
-            guard !matches.isEmpty else {
-                throw ClickError.elementNotFound("element not found: \(query.description)")
-            }
-            guard matches.count == 1 else {
-                throw ClickError.ambiguousQuery("multiple elements matched \(query.description)")
-            }
-            return matches[0]
-        }
-    }
-}
-
-private extension ClickQuery {
-    var description: String {
-        if let role {
-            return "\(role):\"\(name)\""
-        }
-        return "\"\(name)\""
-    }
-}
-
-private extension ClickTarget {
-    var description: String {
-        switch self {
-        case .reference(let id):
-            return id
-        case .query(let query):
-            return query.description
-        }
+        )
     }
 }

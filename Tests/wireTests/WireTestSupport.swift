@@ -9,6 +9,7 @@ class WireCommandTestCase: XCTestCase {
         apps: AppClient? = nil,
         inspect: InspectClient? = nil,
         click: ClickClient? = nil,
+        type: TypeClient? = nil,
         currentDirectoryPath: String = "/tmp/wire-tests",
         stateDirectoryPath: String = "/tmp/wire-state-tests"
     ) -> WireEnvironment {
@@ -17,6 +18,7 @@ class WireCommandTestCase: XCTestCase {
             apps: apps ?? AppState().makeClient(),
             inspect: inspect ?? InspectState().makeClient(),
             click: click ?? ClickState().makeClient(),
+            type: type ?? TypeState().makeClient(),
             currentDirectoryPath: currentDirectoryPath,
             stateDirectoryPath: stateDirectoryPath,
             stdout: output.writeStdout,
@@ -314,6 +316,39 @@ final class ClickState {
     }
 }
 
+final class TypeState {
+    struct FocusedCall: Equatable {
+        let text: String
+    }
+
+    struct ElementCall: Equatable {
+        let elementID: String
+        let text: String
+    }
+
+    var focusedCalls: [FocusedCall] = []
+    var elementCalls: [ElementCall] = []
+    var focusedError: Error?
+    var elementError: Error?
+
+    func makeClient() -> TypeClient {
+        TypeClient(
+            typeFocused: { text in
+                self.focusedCalls.append(.init(text: text))
+                if let focusedError = self.focusedError {
+                    throw focusedError
+                }
+            },
+            typeElement: { element, text in
+                self.elementCalls.append(.init(elementID: element.id, text: text))
+                if let elementError = self.elementError {
+                    throw elementError
+                }
+            }
+        )
+    }
+}
+
 struct StatusEnvelope: Decodable, Equatable {
     let data: StatusData
 }
@@ -348,6 +383,24 @@ struct ErrorEnvelope: Decodable, Equatable {
 struct ErrorBody: Decodable, Equatable {
     let code: String
     let message: String
+}
+
+struct TypeEnvelope: Decodable, Equatable {
+    let snapshot: String?
+    let data: TypePayload
+}
+
+struct TypePayload: Decodable, Equatable {
+    struct Target: Decodable, Equatable {
+        let id: String
+        let role: String
+        let name: String
+    }
+
+    let text: String
+    let into: String?
+    let target: Target?
+    let typed: Bool
 }
 
 struct AppLaunchEnvelope: Decodable, Equatable {

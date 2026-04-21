@@ -50,7 +50,13 @@ struct ClickCommand: ParsableCommand, WireExecutableCommand {
         guard !targets.isEmpty else {
             throw CleanExit.helpRequest(self)
         }
-        return try targets.map(ClickTarget.init(parsing:))
+        return try targets.map { target in
+            try ClickTarget.parse(
+                target,
+                emptyMessage: "click target cannot be empty",
+                invalid: { ClickError.invalidTarget($0) }
+            )
+        }
     }
 
     private func validatedSnapshotID() -> String? {
