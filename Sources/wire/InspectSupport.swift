@@ -679,6 +679,13 @@ enum LiveInspectSystem {
             }
         }
 
+        if try scrollElementWithAccessibility(
+            resolved.element,
+            direction: direction,
+            amount: amount
+        ) {
+            return
+        }
         guard let frame = resolved.screenFrame ?? element.resolver.screenFrame else {
             throw ScrollError.elementGeometryUnavailable("element geometry is unavailable for \(element.id)")
         }
@@ -1031,6 +1038,220 @@ enum LiveInspectSystem {
                 event.post(tap: .cghidEventTap)
             }
         }
+    }
+
+    private static func scrollElementWithAccessibility(
+        _ element: AXUIElement,
+        direction: ScrollDirection,
+        amount: Int
+    ) throws -> Bool {
+        let ancestors = try ancestorChain(of: element)
+        for candidate in ancestors where try scrollUsingScrollBarValue(
+            on: candidate,
+            direction: direction,
+            amount: amount
+        ) {
+            return true
+        }
+        for candidate in ancestors where try scrollUsingPageControlButton(
+            on: candidate,
+            direction: direction,
+            amount: amount
+        ) {
+            return true
+        }
+        for candidate in ancestors where try scrollUsingAreaAction(
+            on: candidate,
+            direction: direction,
+            amount: amount
+        ) {
+            return true
+        }
+        return false
+    }
+
+    private static func ancestorChain(of element: AXUIElement) throws -> [AXUIElement] {
+        var elements: [AXUIElement] = []
+        var current: AXUIElement? = element
+        while let element = current {
+            elements.append(element)
+            if elements.count >= 32 {
+                break
+            }
+            current = try elementAttribute(
+                element,
+                attribute: kAXParentAttribute as CFString
+            )
+        }
+        return elements
+    }
+
+    private static func scrollUsingScrollBarValue(
+        on element: AXUIElement,
+        direction: ScrollDirection,
+        amount: Int
+    ) throws -> Bool {
+        guard let scrollBar = try verticalScrollBar(for: element) else {
+            return false
+        }
+
+        var settable = DarwinBoolean(false)
+        let settableError = AXUIElementIsAttributeSettable(
+            scrollBar,
+            kAXValueAttribute as CFString,
+            &settable
+        )
+        switch settableError {
+        case .success:
+            break
+        case .attributeUnsupported:
+            return false
+        default:
+            throw ScrollError.scrollActionFailed(
+                "failed to check scroll value mutability: \(axErrorDetail(settableError))"
+            )
+        }
+        guard settable.boolValue else {
+            return false
+        }
+
+        guard let currentValue = try numberAttribute(
+            scrollBar,
+            attribute: kAXValueAttribute as CFString
+        ) else {
+            return false
+        }
+        let minValue = try numberAttribute(
+            scrollBar,
+            attribute: kAXMinValueAttribute as CFString
+        ) ?? 0
+        let maxValue = try numberAttribute(
+            scrollBar,
+            attribute: kAXMaxValueAttribute as CFString
+        ) ?? 1
+        let delta = Double(amount) / 50
+        let signedDelta: Double = switch direction {
+        case .up:
+            -delta
+        case .down:
+            delta
+        }
+        let nextValue = max(min(currentValue + signedDelta, maxValue), minValue)
+        let error = AXUIElementSetAttributeValue(
+            scrollBar,
+            kAXValueAttribute as CFString,
+            NSNumber(value: nextValue)
+        )
+        guard error == .success else {
+            throw ScrollError.scrollActionFailed(
+                "failed to set scroll value: \(axErrorDetail(error))"
+            )
+        }
+        return true
+    }
+
+    private static func scrollUsingPageControlButton(
+        on element: AXUIElement,
+        direction: ScrollDirection,
+        amount: Int
+    ) throws -> Bool {
+        guard let scrollBar = try verticalScrollBar(for: element) else {
+            return false
+        }
+        let pageButtonSubrole = switch direction {
+        case .up:
+            "AXDecrementPage"
+        case .down:
+            "AXIncrementPage"
+        }
+        guard let button = try firstDescendant(
+            of: scrollBar,
+            where: { candidate in
+                guard let role = try stringAttribute(candidate, attribute: kAXRoleAttribute as CFString),
+                      role == "AXButton"
+                else {
+                    return false
+                }
+                let subrole = try stringAttribute(candidate, attribute: kAXSubroleAttribute as CFString)
+                return subrole == pageButtonSubrole
+            }
+        ) else {
+            return false
+        }
+
+        let pageSteps = max(1, (amount + 39) / 40)
+        for _ in 0..<pageSteps {
+            let error = AXUIElementPerformAction(button, kAXPressAction as CFString)
+            guard error == .success else {
+                throw ScrollError.scrollActionFailed(
+                    "failed to press scroll control: \(axErrorDetail(error))"
+                )
+            }
+        }
+        return true
+    }
+
+    private static func scrollUsingAreaAction(
+        on element: AXUIElement,
+        direction: ScrollDirection,
+        amount: Int
+    ) throws -> Bool {
+        let action = switch direction {
+        case .up:
+            "AXScrollUpByPage"
+        case .down:
+            "AXScrollDownByPage"
+        }
+        let actions = try actionNames(element)
+        guard actions.contains(action) else {
+            return false
+        }
+        let pageSteps = max(1, (amount + 39) / 40)
+        for _ in 0..<pageSteps {
+            let error = AXUIElementPerformAction(element, action as CFString)
+            switch error {
+            case .success:
+                continue
+            case .actionUnsupported:
+                return false
+            default:
+                throw ScrollError.scrollActionFailed(
+                    "failed to perform scroll action: \(axErrorDetail(error))"
+                )
+            }
+        }
+        return true
+    }
+
+    private static func verticalScrollBar(for element: AXUIElement) throws -> AXUIElement? {
+        if let role = try stringAttribute(element, attribute: kAXRoleAttribute as CFString),
+           role == "AXScrollBar"
+        {
+            return element
+        }
+        return try elementAttribute(
+            element,
+            attribute: kAXVerticalScrollBarAttribute as CFString
+        )
+    }
+
+    private static func firstDescendant(
+        of root: AXUIElement,
+        where predicate: (AXUIElement) throws -> Bool
+    ) throws -> AXUIElement? {
+        var stack: [AXUIElement] = [root]
+        var visited = Set<CFHashCode>()
+        while let element = stack.popLast() {
+            let hash = CFHash(element)
+            guard visited.insert(hash).inserted else {
+                continue
+            }
+            if try predicate(element) {
+                return element
+            }
+            stack.append(contentsOf: try children(of: element))
+        }
+        return nil
     }
 
     private static func postText(_ text: String) throws {
@@ -1423,6 +1644,19 @@ enum LiveInspectSystem {
         }
         if let number = value as? NSNumber {
             return number.boolValue
+        }
+        return nil
+    }
+
+    private static func numberAttribute(
+        _ element: AXUIElement,
+        attribute: CFString
+    ) throws -> Double? {
+        guard let value = try attributeValue(element, attribute: attribute) else {
+            return nil
+        }
+        if let number = value as? NSNumber {
+            return number.doubleValue
         }
         return nil
     }
