@@ -1132,9 +1132,9 @@ enum LiveInspectSystem {
         let delta = Double(amount) / 50
         let signedDelta: Double = switch direction {
         case .up:
-            -delta
-        case .down:
             delta
+        case .down:
+            -delta
         }
         let nextValue = max(min(currentValue + signedDelta, maxValue), minValue)
         let error = AXUIElementSetAttributeValue(
