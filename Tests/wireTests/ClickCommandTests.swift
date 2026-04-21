@@ -15,7 +15,7 @@ final class ClickCommandTests: WireCommandTestCase {
         XCTAssertEqual(exitCode, 0)
         XCTAssertTrue(output.stdout.contains("USAGE: wire click"))
         XCTAssertTrue(output.stdout.contains("EXAMPLES:"))
-        XCTAssertTrue(output.stdout.contains("wire click @e3 --right"))
+        XCTAssertTrue(output.stdout.contains("wire click @e20 @e22 @e21 @e26 --snapshot s11"))
         XCTAssertTrue(output.stdout.contains("--snapshot"))
         XCTAssertTrue(output.stdout.contains("--right"))
         XCTAssertEqual(output.stderr, "")
@@ -72,12 +72,17 @@ final class ClickCommandTests: WireCommandTestCase {
             .init(
                 data: .init(
                     snapshot: "s2",
-                    clicked: .init(
-                        id: targetID,
-                        role: "button",
-                        name: "Continue"
-                    ),
-                    right: false
+                    right: false,
+                    clicks: [
+                        .init(
+                            target: targetID,
+                            id: targetID,
+                            role: "button",
+                            name: "Continue",
+                            clicked: true,
+                            failure: nil
+                        ),
+                    ]
                 )
             )
         )
@@ -203,7 +208,7 @@ final class ClickCommandTests: WireCommandTestCase {
         )
     }
 
-    func testClickReturnsAmbiguousQueryError() async throws {
+    func testClickReturnsBatchFailureForAmbiguousQuery() async throws {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let output = OutputCapture()
         let stateDirectory = makeTemporaryDirectory()
@@ -225,8 +230,10 @@ final class ClickCommandTests: WireCommandTestCase {
         )
 
         XCTAssertEqual(exitCode, 1)
-        let response = try decode(ErrorEnvelope.self, from: output.stdout)
-        XCTAssertEqual(response.error.code, "ambiguous_query")
+        let response = try decode(ClickEnvelope.self, from: output.stdout)
+        XCTAssertEqual(response.data.clicks.count, 1)
+        XCTAssertFalse(response.data.clicks[0].clicked)
+        XCTAssertEqual(response.data.clicks[0].failure?.code, "ambiguous_query")
     }
 
     func testClickReturnsNoSnapshotAvailableError() async throws {
@@ -310,7 +317,7 @@ final class ClickCommandTests: WireCommandTestCase {
         XCTAssertEqual(output.stdout, "right-clicked \(snapshot.elements[0].id) text Morning (\(snapshot.snapshot))\n")
     }
 
-    func testClickSurfacesClientErrors() async throws {
+    func testClickReturnsBatchFailureForClientError() async throws {
         let state = PermissionState(accessibility: true, screenRecording: true)
         let output = OutputCapture()
         let clickState = ClickState()
@@ -330,8 +337,43 @@ final class ClickCommandTests: WireCommandTestCase {
         )
 
         XCTAssertEqual(exitCode, 1)
-        let response = try decode(ErrorEnvelope.self, from: output.stdout)
-        XCTAssertEqual(response.error.code, "target_not_frontmost")
+        let response = try decode(ClickEnvelope.self, from: output.stdout)
+        XCTAssertEqual(response.data.clicks.count, 1)
+        XCTAssertFalse(response.data.clicks[0].clicked)
+        XCTAssertEqual(response.data.clicks[0].failure?.code, "target_not_frontmost")
+    }
+
+    func testClickSupportsMultipleTargetsAndMixedResults() async throws {
+        let state = PermissionState(accessibility: true, screenRecording: true)
+        let output = OutputCapture()
+        let clickState = ClickState()
+        let stateDirectory = makeTemporaryDirectory()
+        let snapshot = try storeSnapshot(
+            in: stateDirectory,
+            inspection: capturedInspection(elements: [buttonElement(name: "Continue", path: [0])])
+        )
+        let targetID = try XCTUnwrap(snapshot.elements.first?.id)
+
+        let exitCode = await WireRunner.run(
+            arguments: ["click", targetID, "@e99"],
+            environment: environment(
+                state: state,
+                output: output,
+                click: clickState.makeClient(),
+                stateDirectoryPath: stateDirectory.path
+            )
+        )
+
+        XCTAssertEqual(exitCode, 1)
+        XCTAssertEqual(
+            clickState.calls,
+            [.init(snapshot: snapshot.snapshot, elementID: targetID, right: false)]
+        )
+        let response = try decode(ClickEnvelope.self, from: output.stdout)
+        XCTAssertEqual(response.data.clicks.count, 2)
+        XCTAssertTrue(response.data.clicks[0].clicked)
+        XCTAssertFalse(response.data.clicks[1].clicked)
+        XCTAssertEqual(response.data.clicks[1].failure?.code, "element_not_found")
     }
 
     private func storeSnapshot(

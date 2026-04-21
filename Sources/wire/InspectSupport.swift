@@ -92,6 +92,7 @@ struct InspectData: Codable, Equatable {
         let id: String
         let role: String
         let name: String
+        let clickable: Bool
         let value: String?
         let enabled: Bool?
     }
@@ -112,6 +113,7 @@ struct InspectData: Codable, Equatable {
         }
         lines.append(contentsOf: elements.map { element in
             var parts = [element.id, element.role, element.name]
+            parts.append("clickable=\(element.clickable ? "yes" : "no")")
             if let value = element.value, !value.isEmpty {
                 parts.append("value=\(value)")
             }
@@ -135,6 +137,7 @@ struct StoredInspectSnapshot: Codable, Equatable {
         let id: String
         let role: String
         let name: String
+        let clickable: Bool
         let value: String?
         let enabled: Bool?
         let resolver: InspectElementResolver
@@ -144,6 +147,7 @@ struct StoredInspectSnapshot: Codable, Equatable {
                 id: id,
                 role: role,
                 name: name,
+                clickable: clickable,
                 value: value,
                 enabled: enabled
             )
@@ -358,6 +362,7 @@ struct SnapshotStore {
                     id: "",
                     role: candidate.role,
                     name: candidate.name,
+                    clickable: candidate.resolver.actions.contains("AXPress"),
                     value: candidate.value,
                     enabled: candidate.enabled,
                     resolver: candidate.resolver
@@ -382,6 +387,7 @@ struct SnapshotStore {
                 id: "@e\(index + 1)",
                 role: element.role,
                 name: element.name,
+                clickable: element.clickable,
                 value: element.value,
                 enabled: element.enabled,
                 resolver: element.resolver
@@ -400,7 +406,13 @@ struct SnapshotStore {
             .map(String.init)
             .joined(separator: ":")
         } ?? "-"
-        return [element.role, element.name, element.value ?? "-", frame].joined(separator: "|")
+        return [
+            element.role,
+            element.name,
+            element.clickable ? "1" : "0",
+            element.value ?? "-",
+            frame,
+        ].joined(separator: "|")
     }
 
     private func nextSnapshotID(from entries: [SnapshotDirectoryEntry]) -> String {

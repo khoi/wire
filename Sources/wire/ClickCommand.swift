@@ -7,6 +7,7 @@ struct ClickCommand: ParsableCommand, WireExecutableCommand {
         discussion: """
         EXAMPLES:
           wire click @e3
+          wire click @e20 @e22 @e21 @e26 --snapshot s11
           wire click "Continue"
           wire click 'button:"Continue"'
           wire click @e3 --snapshot s2
@@ -15,7 +16,7 @@ struct ClickCommand: ParsableCommand, WireExecutableCommand {
     )
 
     @Argument(help: "Element ref or query")
-    var target: String?
+    var targets: [String] = []
 
     @Option(help: "Snapshot ID to use instead of the latest snapshot")
     var snapshot: String?
@@ -34,21 +35,22 @@ struct ClickCommand: ParsableCommand, WireExecutableCommand {
             stateDirectoryPath: context.stateDirectoryPath
         )
         let data = try await service.click(
-            target: try validatedTarget(),
+            targets: try validatedTargets(),
             snapshotID: validatedSnapshotID(),
             right: right
         )
         return CommandExecution.success(
             data: data,
-            plainText: data.plainText()
+            plainText: data.plainText(),
+            exitCode: data.exitCode
         )
     }
 
-    private func validatedTarget() throws -> ClickTarget {
-        guard let target else {
+    private func validatedTargets() throws -> [ClickTarget] {
+        guard !targets.isEmpty else {
             throw CleanExit.helpRequest(self)
         }
-        return try ClickTarget(parsing: target)
+        return try targets.map(ClickTarget.init(parsing:))
     }
 
     private func validatedSnapshotID() -> String? {

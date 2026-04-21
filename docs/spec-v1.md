@@ -29,7 +29,7 @@ wire app quit <app> [--force]
 wire app quit --pid <pid> [--force]
 
 wire inspect [--app <app>]
-wire click <@eN|query> [--snapshot <sN>] [--right]
+wire click <@eN|query>... [--snapshot <sN>] [--right]
 wire type <text> [--into <@eN|query>]
 wire press <key|combo>
 wire scroll [<@eN|query>] --up <n>|--down <n>
@@ -91,20 +91,23 @@ Inspects the active UI and returns a fresh snapshot with short element refs such
 - `--app <app>` targets a running app by exact case-insensitive name
 - captures one visible window only
 - returns a saved screenshot path for that window
+- each element includes `clickable` so agents can avoid non-pressable controls
 - never activates or focuses the target app
 
-### `click <@eN|query>`
+### `click <@eN|query>...`
 
 Clicks an element from an inspect snapshot.
 
 - uses the latest snapshot by default
 - `--snapshot <sN>` pins an exact snapshot
+- supports multiple targets in one call and executes left-to-right
 - `@eN` resolves directly within that snapshot
 - plain queries match `name` exactly, case-insensitive
 - `role:"name"` matches `role` and `name` exactly, case-insensitive
 - default click uses Accessibility `AXPress`
 - `--right` performs a physical right click at the element center
 - `--right` never focuses the app and requires the target app/window to already be frontmost
+- returns per-target results; command exits non-zero if any target fails
 
 ### `type <text> [--into <@eN|query>]`
 
@@ -236,12 +239,14 @@ Example `inspect` result:
         "id": "@e1",
         "role": "text-field",
         "name": "Search",
+        "clickable": true,
         "enabled": true
       },
       {
         "id": "@e2",
         "role": "button",
-        "name": "Google Search"
+        "name": "Google Search",
+        "clickable": true
       }
     ]
   }

@@ -422,6 +422,7 @@ struct InspectItem: Decodable, Equatable {
     let id: String
     let role: String
     let name: String
+    let clickable: Bool
     let value: String?
     let enabled: Bool?
 }
@@ -432,12 +433,20 @@ struct ClickEnvelope: Decodable, Equatable {
 
 struct ClickPayload: Decodable, Equatable {
     let snapshot: String
-    let clicked: ClickedItem
     let right: Bool
+    let clicks: [ClickedItem]
 }
 
 struct ClickedItem: Decodable, Equatable {
-    let id: String
-    let role: String
-    let name: String
+    let target: String
+    let id: String?
+    let role: String?
+    let name: String?
+    let clicked: Bool
+    let failure: ClickFailure?
+}
+
+struct ClickFailure: Decodable, Equatable {
+    let code: String
+    let message: String
 }

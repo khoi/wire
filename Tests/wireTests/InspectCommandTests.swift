@@ -32,6 +32,7 @@ final class InspectCommandTests: WireCommandTestCase {
                 id: "@e1",
                 role: "text-field",
                 name: "Search",
+                clickable: true,
                 value: nil,
                 enabled: true
             )
@@ -58,7 +59,7 @@ final class InspectCommandTests: WireCommandTestCase {
         XCTAssertEqual(exitCode, 0)
         XCTAssertEqual(inspectState.captureCalls, [.app("Google Chrome")])
         XCTAssertTrue(output.stdout.contains("snapshot: s1"))
-        XCTAssertTrue(output.stdout.contains("@e1\ttext-field\tSearch"))
+        XCTAssertTrue(output.stdout.contains("@e1\ttext-field\tSearch\tclickable=yes"))
         XCTAssertEqual(output.stderr, "")
     }
 

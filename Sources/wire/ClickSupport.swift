@@ -85,18 +85,40 @@ struct ClickClient {
 }
 
 struct ClickData: Codable, Equatable {
-    struct Clicked: Codable, Equatable {
-        let id: String
-        let role: String
-        let name: String
+    struct Failure: Codable, Equatable {
+        let code: String
+        let message: String
+    }
+
+    struct Result: Codable, Equatable {
+        let target: String
+        let id: String?
+        let role: String?
+        let name: String?
+        let clicked: Bool
+        let failure: Failure?
     }
 
     let snapshot: String
-    let clicked: Clicked
     let right: Bool
+    let clicks: [Result]
+
+    var exitCode: Int32 {
+        clicks.allSatisfy(\.clicked) ? 0 : 1
+    }
 
     func plainText() -> String {
-        "\(right ? "right-clicked" : "clicked") \(clicked.id) \(clicked.role) \(clicked.name) (\(snapshot))"
+        clicks.map { click in
+            if click.clicked {
+                let verb = right ? "right-clicked" : "clicked"
+                let id = click.id ?? "-"
+                let role = click.role ?? "-"
+                let name = click.name ?? "-"
+                return "\(verb) \(id) \(role) \(name) (\(snapshot))"
+            }
+            let failureMessage = click.failure?.message ?? "click failed"
+            return "\(right ? "right-click failed" : "click failed") \(click.target) (\(snapshot)): \(failureMessage)"
+        }.joined(separator: "\n")
     }
 }
 
@@ -175,7 +197,7 @@ struct ClickService {
     let stateDirectoryPath: String
 
     func click(
-        target: ClickTarget,
+        targets: [ClickTarget],
         snapshotID: String?,
         right: Bool
     ) async throws -> ClickData {
@@ -201,21 +223,59 @@ struct ClickService {
             throw ClickError.snapshotNotFound("snapshot not found: \(resolvedSnapshotID)")
         }
 
-        let element = try resolveElement(
-            target: target,
-            snapshot: snapshot,
-            right: right
-        )
-        logger.log("\(right ? "right-clicking" : "clicking") \(element.id) from \(snapshot.snapshot)")
-        try await client.perform(snapshot.snapshot, element, right)
+        var results: [ClickData.Result] = []
+        for target in targets {
+            let targetDescription = target.description
+            do {
+                let element = try resolveElement(
+                    target: target,
+                    snapshot: snapshot,
+                    right: right
+                )
+                logger.log("\(right ? "right-clicking" : "clicking") \(element.id) from \(snapshot.snapshot)")
+                try await client.perform(snapshot.snapshot, element, right)
+                results.append(
+                    .init(
+                        target: targetDescription,
+                        id: element.id,
+                        role: element.role,
+                        name: element.name,
+                        clicked: true,
+                        failure: nil
+                    )
+                )
+            } catch let error as ClickError {
+                results.append(
+                    .init(
+                        target: targetDescription,
+                        id: nil,
+                        role: nil,
+                        name: nil,
+                        clicked: false,
+                        failure: .init(code: error.code, message: error.message)
+                    )
+                )
+            } catch {
+                let failure = ClickError.elementActionFailed(
+                    "failed to click \(targetDescription): \(String(describing: error))"
+                )
+                results.append(
+                    .init(
+                        target: targetDescription,
+                        id: nil,
+                        role: nil,
+                        name: nil,
+                        clicked: false,
+                        failure: .init(code: failure.code, message: failure.message)
+                    )
+                )
+            }
+        }
+
         return ClickData(
             snapshot: snapshot.snapshot,
-            clicked: .init(
-                id: element.id,
-                role: element.role,
-                name: element.name
-            ),
-            right: right
+            right: right,
+            clicks: results
         )
     }
 
@@ -243,7 +303,7 @@ struct ClickService {
                 if right {
                     return element.resolver.screenFrame != nil
                 }
-                return element.resolver.actions.contains("AXPress")
+                return element.clickable
             }
             guard !matches.isEmpty else {
                 throw ClickError.elementNotFound("element not found: \(query.description)")
@@ -262,5 +322,16 @@ private extension ClickQuery {
             return "\(role):\"\(name)\""
         }
         return "\"\(name)\""
+    }
+}
+
+private extension ClickTarget {
+    var description: String {
+        switch self {
+        case .reference(let id):
+            return id
+        case .query(let query):
+            return query.description
+        }
     }
 }
